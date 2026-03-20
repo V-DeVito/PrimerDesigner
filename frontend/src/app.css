@@ -1,0 +1,129 @@
+@import "tailwindcss";
+
+/*
+  primerdesignr — industrial/utilitarian aesthetic
+  Inspired by oscilloscopes, lab equipment, terminal UIs.
+  Dark background, monospace sequences, color-coded severity.
+*/
+
+@theme {
+  /* Surface layers */
+  --color-bg: #0c0c0e;
+  --color-surface: #141417;
+  --color-surface-raised: #1c1c21;
+  --color-surface-overlay: #24242b;
+
+  /* Text */
+  --color-text: #e4e4e8;
+  --color-text-muted: #8b8b96;
+  --color-text-dim: #5a5a66;
+
+  /* Accents */
+  --color-ok: #34d399;
+  --color-warn: #fbbf24;
+  --color-danger: #f87171;
+  --color-info: #60a5fa;
+
+  /* DNA base colors (for sequence display) */
+  --color-base-a: #f87171;
+  --color-base-t: #60a5fa;
+  --color-base-g: #fbbf24;
+  --color-base-c: #34d399;
+
+  /* Fonts */
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Sequence display — monospace, colored bases */
+.seq {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  letter-spacing: 0.05em;
+}
+
+.seq .A { color: var(--color-base-a); }
+.seq .T { color: var(--color-base-t); }
+.seq .G { color: var(--color-base-g); }
+.seq .C { color: var(--color-base-c); }
+
+/* Dot-bracket notation */
+.dot-bracket {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  letter-spacing: 0.08em;
+}
+
+/* Status indicators */
+.status-ok { color: var(--color-ok); }
+.status-warn { color: var(--color-warn); }
+.status-danger { color: var(--color-danger); }
+
+/* Data table styling */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.data-table th {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-surface-overlay);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.data-table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-surface-raised);
+  font-variant-numeric: tabular-nums;
+}
+
+.data-table tr:hover td {
+  background: var(--color-surface-raised);
+}
+
+/* Cross-dimer matrix cell */
+.matrix-cell {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-align: center;
+  padding: 0.375rem;
+  min-width: 3.5rem;
+}
+
+/* Input textarea */
+.seq-input {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-surface-overlay);
+  color: var(--color-text);
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  width: 100%;
+  resize: vertical;
+  line-height: 1.6;
+  transition: border-color 0.15s;
+}
+
+.seq-input:focus {
+  outline: none;
+  border-color: var(--color-info);
+}
+
+.seq-input::placeholder {
+  color: var(--color-text-dim);
+}
