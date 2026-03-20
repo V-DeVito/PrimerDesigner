@@ -5,20 +5,6 @@
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 /**
- * @typedef {Object} Conditions
- * @property {number} na_mm
- * @property {number} mg_mm
- * @property {number} dna_nm
- */
-
-/**
- * @typedef {Object} AnalyzeRequest
- * @property {Record<string, string>} primers
- * @property {Conditions} conditions
- * @property {boolean} include_cross_dimers
- */
-
-/**
  * Parse raw text input into a primers dict.
  * Handles: "NAME SEQ", "NAME\tSEQ", ">NAME\nSEQ", bare "SEQ"
  * @param {string} raw
@@ -67,7 +53,7 @@ export function parsePrimerInput(raw) {
 /**
  * Call the /analyze endpoint
  * @param {Record<string, string>} primers
- * @param {Conditions} conditions
+ * @param {Object} conditions
  * @returns {Promise<Object>}
  */
 export async function analyzePrimers(primers, conditions = {}) {
@@ -94,6 +80,33 @@ export async function analyzePrimers(primers, conditions = {}) {
 }
 
 /**
+ * Call the /golden-gate endpoint
+ * @param {string[]} overhangs
+ * @param {string} enzyme
+ * @param {Record<string, string>} [sequences]
+ * @param {Record<string, string>} [primers]
+ * @returns {Promise<Object>}
+ */
+export async function validateGoldenGate(overhangs, enzyme = 'BsaI', sequences, primers) {
+	const body = { overhangs, enzyme };
+	if (sequences) body.sequences = sequences;
+	if (primers) body.primers = primers;
+
+	const res = await fetch(`${API_BASE}/golden-gate`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(body),
+	});
+
+	if (!res.ok) {
+		const err = await res.json().catch(() => ({ detail: res.statusText }));
+		throw new Error(err.detail || 'Validation failed');
+	}
+
+	return res.json();
+}
+
+/**
  * Export results as CSV string
  * @param {Object} results - AnalyzeResponse from the API
  * @returns {string}
@@ -102,7 +115,7 @@ export function exportCSV(results) {
 	const rows = [
 		['Name', 'Sequence', 'Length', 'GC%', 'Tm (°C)',
 		 'Hairpin ΔG (SL)', 'Hairpin ΔG (MW)', 'Self-dimer ΔG',
-		 'Dot-bracket', 'Warnings'].join(','),
+		 'Self-dimer 3\' ΔG', 'Dot-bracket', 'Warnings'].join(','),
 	];
 
 	for (const [name, p] of Object.entries(results.primers)) {
@@ -115,6 +128,7 @@ export function exportCSV(results) {
 			p.hairpin.dg_santalucia,
 			p.hairpin.dg_mathews,
 			p.homodimer.dg,
+			p.homodimer.dg_3prime ?? '',
 			`"${p.hairpin.dot_bracket}"`,
 			`"${p.warnings.join('; ')}"`,
 		].join(','));
@@ -123,9 +137,9 @@ export function exportCSV(results) {
 	if (results.cross_dimers?.length) {
 		rows.push('');
 		rows.push('Cross-dimer pairs');
-		rows.push('Primer A,Primer B,ΔG (kcal/mol),Problematic');
+		rows.push('Primer A,Primer B,ΔG (kcal/mol),3\' ΔG,Problematic');
 		for (const cd of results.cross_dimers) {
-			rows.push(`${cd.primer_a},${cd.primer_b},${cd.dg},${cd.is_problematic}`);
+			rows.push(`${cd.primer_a},${cd.primer_b},${cd.dg},${cd.dg_3prime ?? ''},${cd.is_problematic}`);
 		}
 	}
 

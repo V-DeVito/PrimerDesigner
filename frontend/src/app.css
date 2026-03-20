@@ -1,52 +1,68 @@
 @import "tailwindcss";
 
 /*
-  primerdesignr — industrial/utilitarian aesthetic
-  Inspired by oscilloscopes, lab equipment, terminal UIs.
-  Dark background, monospace sequences, color-coded severity.
+  primerdesignr v0.3 — refined dark UI
+  Clean biotech SaaS aesthetic with depth and clarity.
 */
 
 @theme {
-  /* Surface layers */
-  --color-bg: #0c0c0e;
-  --color-surface: #141417;
-  --color-surface-raised: #1c1c21;
-  --color-surface-overlay: #24242b;
+  /* Surface layers — subtle cool undertone */
+  --color-bg: #09090b;
+  --color-surface: #111114;
+  --color-surface-raised: #18181c;
+  --color-surface-overlay: #222228;
+  --color-border: #27272e;
+  --color-border-subtle: #1e1e24;
 
   /* Text */
-  --color-text: #e4e4e8;
-  --color-text-muted: #8b8b96;
-  --color-text-dim: #5a5a66;
+  --color-text: #ededf0;
+  --color-text-secondary: #a0a0ab;
+  --color-text-muted: #63637a;
 
   /* Accents */
-  --color-ok: #34d399;
-  --color-warn: #fbbf24;
-  --color-danger: #f87171;
+  --color-primary: #6366f1;
+  --color-primary-soft: #6366f11a;
+  --color-ok: #22c55e;
+  --color-ok-soft: #22c55e1a;
+  --color-warn: #eab308;
+  --color-warn-soft: #eab3081a;
+  --color-danger: #ef4444;
+  --color-danger-soft: #ef44441a;
   --color-info: #60a5fa;
 
-  /* DNA base colors (for sequence display) */
+  /* DNA base colors */
   --color-base-a: #f87171;
   --color-base-t: #60a5fa;
-  --color-base-g: #fbbf24;
+  --color-base-g: #facc15;
   --color-base-c: #34d399;
 
   /* Fonts */
-  --font-sans: 'DM Sans', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-sans: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
 }
+
+/* ── Base ─────────────────────────────────── */
+html { scroll-behavior: smooth; }
 
 body {
   background-color: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Sequence display — monospace, colored bases */
+::selection {
+  background: var(--color-primary);
+  color: white;
+}
+
+/* ── Sequence Display ─────────────────────── */
 .seq {
   font-family: var(--font-mono);
   font-size: 0.8125rem;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
 }
 
 .seq .A { color: var(--color-base-a); }
@@ -54,76 +70,279 @@ body {
 .seq .G { color: var(--color-base-g); }
 .seq .C { color: var(--color-base-c); }
 
-/* Dot-bracket notation */
 .dot-bracket {
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   color: var(--color-text-muted);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
 }
 
-/* Status indicators */
-.status-ok { color: var(--color-ok); }
-.status-warn { color: var(--color-warn); }
-.status-danger { color: var(--color-danger); }
-
-/* Data table styling */
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.875rem;
+/* ── Cards ────────────────────────────────── */
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.data-table th {
-  text-align: left;
-  padding: 0.5rem 0.75rem;
+.card:hover {
+  border-color: var(--color-border);
+}
+
+.card-ok    { border-left: 3px solid var(--color-ok); }
+.card-warn  { border-left: 3px solid var(--color-warn); }
+.card-danger { border-left: 3px solid var(--color-danger); }
+
+/* ── Buttons ──────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
   font-weight: 500;
-  color: var(--color-text-muted);
-  border-bottom: 1px solid var(--color-surface-overlay);
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  border: none;
+  white-space: nowrap;
 }
 
-.data-table td {
-  padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid var(--color-surface-raised);
-  font-variant-numeric: tabular-nums;
+.btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
-.data-table tr:hover td {
+.btn-primary {
+  background: var(--color-primary);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.15);
+  box-shadow: 0 0 20px var(--color-primary-soft);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.btn-ghost:hover:not(:disabled) {
   background: var(--color-surface-raised);
+  color: var(--color-text);
+  border-color: var(--color-border);
 }
 
-/* Cross-dimer matrix cell */
-.matrix-cell {
-  font-family: var(--font-mono);
+.btn-sm {
   font-size: 0.75rem;
-  text-align: center;
-  padding: 0.375rem;
-  min-width: 3.5rem;
+  padding: 0.375rem 0.75rem;
 }
 
-/* Input textarea */
+/* ── Input ────────────────────────────────── */
+.input {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  color: var(--color-text);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
+}
+
+.input-mono {
+  font-family: var(--font-mono);
+}
+
 .seq-input {
   font-family: var(--font-mono);
   font-size: 0.8125rem;
   background: var(--color-surface);
-  border: 1px solid var(--color-surface-overlay);
+  border: 1px solid var(--color-border-subtle);
   color: var(--color-text);
-  border-radius: 0.375rem;
-  padding: 0.75rem;
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
   width: 100%;
   resize: vertical;
-  line-height: 1.6;
-  transition: border-color 0.15s;
+  line-height: 1.7;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  letter-spacing: 0.02em;
 }
 
 .seq-input:focus {
   outline: none;
-  border-color: var(--color-info);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
 }
 
 .seq-input::placeholder {
-  color: var(--color-text-dim);
+  color: var(--color-text-muted);
+}
+
+/* ── Metric chips ─────────────────────────── */
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.metric-label {
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.metric-value {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Status colors ────────────────────────── */
+.val-ok     { color: var(--color-ok); }
+.val-warn   { color: var(--color-warn); }
+.val-danger { color: var(--color-danger); }
+.val-muted  { color: var(--color-text-muted); }
+
+/* ── Badge ────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  padding: 0.1875rem 0.5rem;
+  border-radius: 9999px;
+  line-height: 1.4;
+}
+
+.badge-ok {
+  background: var(--color-ok-soft);
+  color: var(--color-ok);
+}
+
+.badge-warn {
+  background: var(--color-warn-soft);
+  color: var(--color-warn);
+}
+
+.badge-danger {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+/* ── Heatmap cell ─────────────────────────── */
+.heatmap-cell {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-align: center;
+  padding: 0.5rem 0.25rem;
+  border-radius: 0.375rem;
+  min-width: 3.5rem;
+  transition: transform 0.1s;
+  font-variant-numeric: tabular-nums;
+}
+
+.heatmap-cell:hover {
+  transform: scale(1.1);
+  z-index: 1;
+}
+
+/* ── Toast ────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(0);
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.625rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  z-index: 100;
+  pointer-events: none;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  animation: toast-in 0.3s ease, toast-out 0.3s ease 1.7s forwards;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes toast-out {
+  from { opacity: 1; transform: translateX(-50%) translateY(0); }
+  to   { opacity: 0; transform: translateX(-50%) translateY(12px); }
+}
+
+/* ── Skeleton loading ─────────────────────── */
+.skeleton {
+  background: linear-gradient(90deg,
+    var(--color-surface-raised) 25%,
+    var(--color-surface-overlay) 50%,
+    var(--color-surface-raised) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 0.375rem;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Fade-in animation ────────────────────── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fade-up 0.4s ease both;
+}
+
+/* ── Spinner ──────────────────────────────── */
+.spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Scrollbar ────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
+
+/* ── Expand/collapse transition ───────────── */
+.expand-enter {
+  animation: expand-in 0.25s ease both;
+}
+
+@keyframes expand-in {
+  from { opacity: 0; max-height: 0; }
+  to   { opacity: 1; max-height: 500px; }
 }
