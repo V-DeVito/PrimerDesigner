@@ -1,19 +1,22 @@
 """
-primerdesignr.mathews_hairpin — Mathews/Turner RNA parameter hairpin prediction
+primerdesignr.mathews_hairpin — Mathews/Turner RNA parameter hairpin heuristic
 
-This module exists for one reason: SantaLucia DNA parameters over-penalize
-hairpin stems that close with A-T pairs. The Mathews/Turner RNA parameters
-don't have this penalty, and Binet et al. (2023) showed they predict ssDNA
-secondary structure more accurately (49% vs 43% identical to experiment).
+A secondary hairpin scanner providing a heuristic second opinion on
+ssDNA hairpin prediction. SantaLucia DNA parameters include a terminal
+A-T penalty on hairpin closing pairs; Mathews/Turner RNA parameters do
+not. Binet et al. (2023) found that RNA parameters predicted ssDNA
+secondary structure slightly more accurately (49% vs 43% identical to
+experiment) in mfold, partly attributable to this penalty difference.
 
-For primers, this matters when a hairpin has an AT closing pair:
-    SantaLucia: "ΔG = -1.5, probably won't form"
-    Mathews:    "ΔG = -2.5, will form"
-    Reality:    it forms
+However, that study evaluated full secondary-structure prediction on
+structured aptamers, not targeted hairpin scanning on short primers.
+This module is therefore a heuristic flag for manual review, not a
+ground-truth engine. It is most useful when SantaLucia and Mathews
+disagree on a specific hairpin with an A-T closing pair.
 
-This is NOT a full RNA folding engine. It's a targeted hairpin scanner
-using Mathews/Turner nearest-neighbor parameters, specifically to catch
-the cases where SantaLucia (via seqfold) gives a false negative.
+This is NOT a full RNA folding engine. It scans for hairpin structures
+with stem ≥3 bp and loop 3-30 nt using Mathews/Turner NN stacking
+parameters.
 
 References:
     Mathews DH et al. (1999) J Mol Biol 288:911-940
@@ -160,10 +163,9 @@ def calc_hairpin_dg(seq: str, temp: float = 37.0) -> float:
 
             dg += _nn_dg(top, bottom, temp_k)
 
-        # NOTE: No terminal A-T penalty here. That's the whole point.
-        # SantaLucia adds +0.5 kcal/mol for AT closing pairs.
-        # Mathews/Turner does not. Binet et al. showed this is more
-        # accurate for ssDNA hairpin prediction.
+        # No terminal A-T penalty in Mathews/Turner params.
+        # This is the parameter difference Binet et al. identified as
+        # potentially affecting ssDNA hairpin predictions at A-T closing pairs.
 
         if dg < best_dg:
             best_dg = dg

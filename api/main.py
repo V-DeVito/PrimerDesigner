@@ -94,7 +94,8 @@ class PairRequest(BaseModel):
 class GoldenGateRequest(BaseModel):
     overhangs: list[str] = Field(..., min_length=2, max_length=20)
     enzyme: str = "BsaI"
-    sequences: Optional[dict[str, str]] = None  # For internal site scanning
+    sequences: Optional[dict[str, str]] = None  # Part sequences to scan
+    primers: Optional[dict[str, str]] = None     # Primers to scan for internal sites
 
 
 class HairpinResponse(BaseModel):
@@ -107,7 +108,9 @@ class HairpinResponse(BaseModel):
 
 class DimerResponse(BaseModel):
     dg: float
+    dg_3prime: float = 0.0
     is_problematic: bool
+    has_3prime_risk: bool = False
 
 
 class PrimerResponse(BaseModel):
@@ -124,7 +127,9 @@ class CrossDimerEntry(BaseModel):
     primer_a: str
     primer_b: str
     dg: float
+    dg_3prime: float = 0.0
     is_problematic: bool
+    has_3prime_risk: bool = False
 
 
 class AnalyzeResponse(BaseModel):
@@ -151,7 +156,9 @@ def _primer_to_response(report) -> PrimerResponse:
         ),
         homodimer=DimerResponse(
             dg=report.homodimer.dg,
+            dg_3prime=report.homodimer.dg_3prime,
             is_problematic=report.homodimer.is_problematic,
+            has_3prime_risk=report.homodimer.has_3prime_risk,
         ),
         warnings=report.warnings,
     )
@@ -161,7 +168,7 @@ def _primer_to_response(report) -> PrimerResponse:
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": "0.1.0"}
+    return {"status": "ok", "version": "0.3.0"}
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
@@ -193,7 +200,9 @@ def analyze(req: AnalyzeRequest):
                 primer_a=n1,
                 primer_b=n2,
                 dg=result.dg,
+                dg_3prime=result.dg_3prime,
                 is_problematic=result.is_problematic,
+                has_3prime_risk=result.has_3prime_risk,
             ))
 
     # Tm spread
@@ -239,7 +248,9 @@ def pair(req: PairRequest):
         "reverse": _primer_to_response(result.reverse),
         "heterodimer": DimerResponse(
             dg=result.heterodimer.dg,
+            dg_3prime=result.heterodimer.dg_3prime,
             is_problematic=result.heterodimer.is_problematic,
+            has_3prime_risk=result.heterodimer.has_3prime_risk,
         ),
         "tm_difference": result.tm_difference,
         "warnings": result.warnings,
@@ -257,6 +268,7 @@ def golden_gate(req: GoldenGateRequest):
     result = check_golden_gate(
         req.overhangs,
         sequences=req.sequences,
+        primers=req.primers,
         enzyme=req.enzyme,
     )
 

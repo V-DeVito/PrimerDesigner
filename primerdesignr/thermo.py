@@ -2,14 +2,16 @@
 primerdesignr.thermo — Thermodynamic analysis engine
 
 Backend architecture:
-    primer3-py  →  Tm, homodimer ΔG, heterodimer ΔG  (SantaLucia 2004)
-    seqfold     →  Hairpin MFE + dot-bracket structure (Zuker DP, SantaLucia 2004)
-    mathews     →  Hairpin second opinion              (Turner/Mathews RNA params)
+    primer3-py  →  Tm, homodimer ΔG, heterodimer ΔG, 3' stability  (SantaLucia 2004)
+    seqfold     →  Hairpin MFE + dot-bracket structure               (Zuker DP, SantaLucia 2004)
+    mathews     →  Hairpin heuristic second opinion                   (Turner/Mathews RNA params)
 
-The Mathews hairpin check catches AT-closing stems that SantaLucia
-over-penalizes — see Binet et al. BMC Bioinformatics (2023) 24:422.
+The Mathews hairpin module provides a secondary heuristic view on
+ssDNA hairpin prediction, flagging cases where the SantaLucia terminal
+A-T penalty may lead to under-prediction. See Binet et al. (2023).
 
-primer3-py is GPL v2, contained server-side. seqfold is MIT.
+primerdesignr overrides primer3-py's library defaults to match IDT
+OligoAnalyzer conventions. primer3-py is GPL v2, contained server-side.
 """
 
 from dataclasses import dataclass, field
@@ -34,13 +36,22 @@ class TmResult:
 @dataclass
 class DimerResult:
     """Homodimer or heterodimer result."""
-    dg: float           # ΔG in kcal/mol
+    dg: float           # ΔG in kcal/mol (full dimer)
+    dg_3prime: float = 0.0  # ΔG of 3' end alignment specifically
     dg_threshold: float = -9.0  # Industry standard cutoff
+    dg_3prime_threshold: float = -5.0  # 3' end stability cutoff
     ascii_structure: str = ''
 
     @property
     def is_problematic(self) -> bool:
         return self.dg < self.dg_threshold
+
+    @property
+    def has_3prime_risk(self) -> bool:
+        """True if 3' end forms a stable dimer even if overall ΔG is above threshold.
+        A weak dimer with perfectly complementary 3' ends is deadly —
+        polymerase extends from 3', creating primer-dimer artifacts."""
+        return self.dg_3prime < self.dg_3prime_threshold
 
 
 @dataclass
@@ -143,38 +154,82 @@ def calc_hairpin(seq: str, temp: float = 37.0) -> HairpinResult:
     )
 
 
-def calc_homodimer(seq: str, temp: float = 37.0) -> DimerResult:
+def calc_homodimer(
+    seq: str,
+    temp: float = 37.0,
+    mv_conc: float = 50.0,
+    dv_conc: float = 0.0,
+) -> DimerResult:
     """
     Homodimer (self-dimer) ΔG via primer3-py.
 
     Two copies of the same primer hybridizing to each other.
+    Also checks 3' end stability — a weak dimer with a perfectly
+    complementary 3' end is more dangerous than a strong dimer
+    with internal complementarity only.
+
+    Note: primerdesignr overrides primer3-py's library defaults
+    (which are 50mM Na+, 1.5mM Mg2+, 0.6mM dNTP, 50nM DNA).
+    Our defaults match IDT OligoAnalyzer (50mM Na+, 0 Mg2+).
     """
     result = primer3.calc_homodimer(
         seq,
-        mv_conc=50.0,
-        dv_conc=1.5,
+        mv_conc=mv_conc,
+        dv_conc=dv_conc,
+        dntp_conc=0.0,
+        dna_conc=250.0,
         temp_c=temp,
     )
-    return DimerResult(
-        dg=round(result.dg / 1000, 2),  # primer3 returns cal/mol
-        ascii_structure=result.ascii_structure if hasattr(result, 'ascii_structure') else '',
-    )
-
-
-def calc_heterodimer(seq1: str, seq2: str, temp: float = 37.0) -> DimerResult:
-    """
-    Heterodimer (cross-dimer) ΔG via primer3-py.
-
-    Forward and reverse primers hybridizing to each other.
-    """
-    result = primer3.calc_heterodimer(
-        seq1, seq2,
-        mv_conc=50.0,
-        dv_conc=1.5,
+    end_result = primer3.calc_end_stability(
+        seq, seq,
+        mv_conc=mv_conc,
+        dv_conc=dv_conc,
+        dntp_conc=0.0,
+        dna_conc=250.0,
         temp_c=temp,
     )
     return DimerResult(
         dg=round(result.dg / 1000, 2),
+        dg_3prime=round(end_result.dg / 1000, 2),
+        ascii_structure=result.ascii_structure if hasattr(result, 'ascii_structure') else '',
+    )
+
+
+def calc_heterodimer(
+    seq1: str,
+    seq2: str,
+    temp: float = 37.0,
+    mv_conc: float = 50.0,
+    dv_conc: float = 0.0,
+) -> DimerResult:
+    """
+    Heterodimer (cross-dimer) ΔG via primer3-py.
+
+    Forward and reverse primers hybridizing to each other.
+    Also checks 3' end stability for both orientations.
+
+    Note: primerdesignr overrides primer3-py's library defaults.
+    """
+    result = primer3.calc_heterodimer(
+        seq1, seq2,
+        mv_conc=mv_conc,
+        dv_conc=dv_conc,
+        dntp_conc=0.0,
+        dna_conc=250.0,
+        temp_c=temp,
+    )
+    end_1on2 = primer3.calc_end_stability(
+        seq1, seq2,
+        mv_conc=mv_conc, dv_conc=dv_conc, dntp_conc=0.0, dna_conc=250.0, temp_c=temp,
+    )
+    end_2on1 = primer3.calc_end_stability(
+        seq2, seq1,
+        mv_conc=mv_conc, dv_conc=dv_conc, dntp_conc=0.0, dna_conc=250.0, temp_c=temp,
+    )
+    worst_3prime = min(end_1on2.dg, end_2on1.dg)
+    return DimerResult(
+        dg=round(result.dg / 1000, 2),
+        dg_3prime=round(worst_3prime / 1000, 2),
         ascii_structure=result.ascii_structure if hasattr(result, 'ascii_structure') else '',
     )
 
@@ -221,20 +276,30 @@ def _generate_warnings(seq: str, tm: TmResult, hairpin: HairpinResult,
         )
     if hairpin.engines_disagree:
         warnings.append(
-            "⚠ SantaLucia/Mathews disagree on hairpin — likely AT-closing stem"
+            "SantaLucia/Mathews disagree on hairpin — may be under-penalized "
+            "by DNA parameters at A-T closing pair; review manually"
         )
 
     # Self-dimer
     if homodimer.is_problematic:
         warnings.append(f"Self-dimer ΔG = {homodimer.dg} kcal/mol (threshold: -9)")
+    if homodimer.has_3prime_risk:
+        warnings.append(
+            f"3' self-dimer risk (ΔG = {homodimer.dg_3prime} kcal/mol) — "
+            f"polymerase extends from 3', creating primer-dimer artifacts"
+        )
 
-    # 3' end: GC clamp check (want 1-2 G/C in last 5 bases, not 0, not 5)
+    # 3' end: GC clamp check
+    # Ideal: exactly 1-2 G/C in last 5 bases, with G or C at the 3' terminus
+    # This anchors the polymerase without making the end so sticky it misprimes
     three_prime = seq[-5:]
     gc_3p = sum(1 for b in three_prime if b in 'GC')
     if gc_3p == 0:
         warnings.append("No GC in last 5 bases — weak 3' anchoring")
+    elif gc_3p == 3:
+        warnings.append("3 G/C in last 5 bases — acceptable but prefer 1–2 for ideal GC clamp")
     elif gc_3p >= 4:
-        warnings.append("Heavy GC at 3' end — risk of mispriming")
+        warnings.append(f"{gc_3p} G/C in last 5 bases — heavy 3' end risks mispriming")
 
     # Homopolymer runs
     for base in 'ATGC':
@@ -283,6 +348,11 @@ def analyze_pair(fwd: str, rev: str, **kwargs) -> PairReport:
         warnings.append(f"Tm difference {tm_diff}°C — recommend <5°C")
     if heterodimer.is_problematic:
         warnings.append(f"Cross-dimer ΔG = {heterodimer.dg} kcal/mol")
+    if heterodimer.has_3prime_risk:
+        warnings.append(
+            f"3' cross-dimer risk (ΔG = {heterodimer.dg_3prime} kcal/mol) — "
+            f"primers can extend off each other"
+        )
 
     return PairReport(
         forward=fwd_report,

@@ -151,10 +151,12 @@ GOLDEN_GATE_FIDELITY_SETS = {
     ],
 }
 
-# Known problematic overhangs (palindromic or low-fidelity)
+# All 16 possible 4bp reverse-complement palindromes
 PALINDROMIC_4BP = {
-    'AATT', 'TTAA', 'CATG', 'GTAC', 'CTAG', 'GATC',
-    'ATAT', 'TATA', 'GCGC', 'CGCG', 'ACGT', 'TGCA',
+    'AATT', 'ATAT', 'AGCT', 'ACGT',
+    'TATA', 'TTAA', 'TGCA', 'TCGA',
+    'GATC', 'GTAC', 'GGCC', 'GCGC',
+    'CATG', 'CTAG', 'CGCG', 'CCGG',
 }
 
 # Type IIS restriction enzyme cut sites
@@ -233,6 +235,7 @@ def check_overhang(overhang: str, fidelity_set: str = '10_fragment') -> Overhang
 def check_golden_gate(
     overhangs: List[str],
     sequences: Optional[Dict[str, str]] = None,
+    primers: Optional[Dict[str, str]] = None,
     enzyme: str = 'BsaI',
     fidelity_set: str = '10_fragment',
 ) -> GoldenGateResult:
@@ -242,15 +245,24 @@ def check_golden_gate(
     Args:
         overhangs: List of 4bp overhang sequences
         sequences: Optional dict of {name: sequence} to scan for internal enzyme sites
+        primers: Optional dict of {name: sequence} — primers are also scanned for
+                 internal enzyme sites (a common mistake: accidentally engineering
+                 a BsaI site into the binding region or spacer)
         enzyme: Type IIS enzyme name
         fidelity_set: Which pre-validated set to check against
+
+    Note on uniqueness: The collision check is a strict 1:1 string match —
+    exact sequence identity or reverse-complement identity. It does NOT compute
+    mismatch penalties or edit distance. For custom overhangs outside the NEB
+    validated sets, near-misses (1bp difference) may still cause reduced
+    fidelity; use the NEB Ligation Fidelity Viewer for edge cases.
     """
     warnings = []
 
     # Check each overhang
     oh_results = [check_overhang(oh, fidelity_set) for oh in overhangs]
 
-    # Check uniqueness
+    # Check uniqueness (strict string match + reverse complement)
     oh_seqs = [r.overhang for r in oh_results]
     rc_seqs = [r.reverse_complement for r in oh_results]
     all_seqs = oh_seqs + rc_seqs
@@ -264,19 +276,34 @@ def check_golden_gate(
                 warnings.append(f"Duplicate or RC collision: {s}")
             seen.add(s)
 
-    # Scan for internal enzyme sites
+    # Scan for internal enzyme sites in part sequences AND primers
     internal_sites = []
-    if sequences and enzyme in TYPE_IIS_SITES:
+    if enzyme in TYPE_IIS_SITES:
         site_seq, _ = TYPE_IIS_SITES[enzyme]
         site_rc = _reverse_complement(site_seq)
 
-        for name, seq in sequences.items():
+        # Combine sequences and primers for scanning
+        all_seqs_to_scan = {}
+        if sequences:
+            all_seqs_to_scan.update(sequences)
+        if primers:
+            all_seqs_to_scan.update(
+                {f"primer:{k}": v for k, v in primers.items()}
+            )
+
+        for name, seq in all_seqs_to_scan.items():
             seq_upper = seq.upper()
             for pos in range(len(seq_upper) - len(site_seq) + 1):
                 window = seq_upper[pos:pos + len(site_seq)]
                 if window == site_seq or window == site_rc:
                     internal_sites.append((name, pos))
-                    warnings.append(f"Internal {enzyme} site in {name} at position {pos}")
+                    if name.startswith('primer:'):
+                        warnings.append(
+                            f"Internal {enzyme} site in {name} at position {pos} — "
+                            f"primer will cleave itself during Golden Gate reaction"
+                        )
+                    else:
+                        warnings.append(f"Internal {enzyme} site in {name} at position {pos}")
 
     # Overall assessment
     palindromic_count = sum(1 for r in oh_results if r.is_palindromic)
