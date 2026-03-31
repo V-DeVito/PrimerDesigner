@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+/*
+  PrimerDesigner — Brutalist / Bauhaus laboratory terminal
+  Space Grotesk (display/body) + Space Mono (data only)
+  Warm cream bg, tinted blacks, Bauhaus primaries
+*/
+
+@theme {
+  /* Ink & paper */
+  --color-ink: #1A1812;
+  --color-bg: #FAF9F4;
+  --color-cream: #F5F4EF;
+  --color-surface: #FAF9F4;
+  --color-surface-raised: #F0EFE8;
+  --color-border-subtle: #D6D3C8;
+
+  /* Text hierarchy */
+  --color-text: #1A1812;
+  --color-text-secondary: #3D3A30;
+  --color-text-muted: #6B6860;
+
+  /* Bauhaus primaries */
+  --color-red: #C52D3A;
+  --color-yellow: #E8A820;
+  --color-blue: #1D3557;
+  --color-green: #2D7D46;
+
+  /* Severity */
+  --color-ok: #2D7D46;
+  --color-warn: #D4890A;
+  --color-danger: #C52D3A;
+  --color-ok-bg: #E8F5E9;
+  --color-warn-bg: #FFF8E1;
+  --color-danger-bg: #FFEBEE;
+
+  /* DNA base colors */
+  --color-base-a: #C52D3A;
+  --color-base-t: #1D3557;
+  --color-base-g: #8B7420;
+  --color-base-c: #1E7D72;
+
+  /* Shadows */
+  --shadow-hard: 4px 4px 0 #1A1812;
+
+  /* Fonts */
+  --font-sans: 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: 'Space Mono', monospace;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Typography classes ── */
+.t-display { font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700; }
+.t-heading { font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 600; }
+.t-label { font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; }
+.t-data { font-family: 'Space Mono', monospace; font-variant-numeric: tabular-nums; }
+
+/* ── DNA sequence coloring ── */
+.seq { font-family: 'Space Mono', monospace; font-size: 0.8125rem; letter-spacing: 0.04em; font-weight: 700; }
+.seq .A { color: var(--color-base-a); }
+.seq .T { color: var(--color-base-t); }
+.seq .G { color: var(--color-base-g); }
+.seq .C { color: var(--color-base-c); }
+
+/* ── Button ── */
+.btn {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 2.5px solid var(--color-ink);
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+.btn:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--color-ink); }
+.btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--color-ink); }
+.btn-primary { background: var(--color-red); color: white; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* ── Animations ── */
+.enter { animation: enterUp 0.2s ease-out both; }
+@keyframes enterUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── Skeleton loader ── */
+.skeleton { background: linear-gradient(90deg, var(--color-surface-raised) 25%, var(--color-cream) 50%, var(--color-surface-raised) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 2px; }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* ── Spinner ── */
+.spinner { display: inline-block; border: 2px solid transparent; border-top-color: currentColor; border-radius: 50%; animation: spin 0.6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }

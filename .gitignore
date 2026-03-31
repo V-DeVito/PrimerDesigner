@@ -1,0 +1,18 @@
+node_modules/
+.svelte-kit/
+build/
+dist/
+__pycache__/
+*.pyc
+.env
+.env.local
+.venv/
+*.egg-info/
+.DS_Store
+
+# Claude
+.claude/
+.claude-worktrees/
+
+# Lock files
+frontend/package-lock.json
