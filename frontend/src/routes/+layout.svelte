@@ -4,23 +4,25 @@
 	let { children } = $props();
 </script>
 
-<div class="min-h-screen flex flex-col">
-	<header class="border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-		<a href="/" class="text-sm font-semibold tracking-tight text-gray-900">PrimerDesigner</a>
+<div class="bg-scene"></div>
+
+<div class="min-h-screen flex flex-col relative">
+	<header class="px-6 py-4 flex items-center justify-between">
+		<a href="/" class="text-[14px] font-semibold tracking-tight text-white/90">PrimerDesigner</a>
 		<nav class="flex items-center gap-4 text-[13px]">
 			<a href="https://github.com/V-DeVito/PrimerDesigner" target="_blank" rel="noopener"
-			   class="text-gray-400 hover:text-gray-900 transition-colors">
+			   class="text-white/30 hover:text-white/70 transition-colors">
 				GitHub
 			</a>
 		</nav>
 	</header>
 
-	<main class="flex-1 max-w-[960px] w-full mx-auto px-6 py-8">
+	<main class="flex-1 max-w-[960px] w-full mx-auto px-6 py-6">
 		{@render children()}
 	</main>
 
-	<footer class="border-t border-gray-200 px-6 py-3 text-[11px] text-gray-400 flex items-center justify-between">
+	<footer class="px-6 py-3 text-[11px] text-white/20 flex items-center justify-between">
 		<span>SantaLucia 2004 · Mathews/Turner NN parameters</span>
-		<span>Built by <a href="https://vicenzodevito.com" class="hover:text-gray-900">Vicenzo DeVito</a></span>
+		<span>Built by Vicenzo DeVito</span>
 	</footer>
 </div>
