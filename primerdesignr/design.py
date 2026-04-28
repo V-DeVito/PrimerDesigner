@@ -107,6 +107,33 @@ def _candidate_explanations(pair: PairReport, product_size: int, penalty: float)
     return explanations
 
 
+def _dimer_excess(candidate: PrimerPairCandidate) -> float:
+    """Amount by which dimers exceed PrimerDesigner's -9 kcal/mol warning line."""
+    values = [
+        candidate.heterodimer.dg,
+        candidate.pair.forward.homodimer.dg,
+        candidate.pair.reverse.homodimer.dg,
+    ]
+    return round(sum(max(0.0, -dg - 9.0) for dg in values), 3)
+
+
+def _candidate_score(candidate: PrimerPairCandidate) -> tuple[float, float, float, float]:
+    """
+    Rank by PrimerDesigner's launch-facing quality first, then Primer3 penalty.
+
+    Primer3 is excellent at finding legal primer pairs, but its pair penalty
+    does not map one-to-one to the warnings this app explains to users. We
+    therefore request a deeper Primer3 pool and promote candidates with fewer
+    PrimerDesigner warnings.
+    """
+    return (
+        len(candidate.warnings),
+        _dimer_excess(candidate),
+        candidate.pair.tm_difference,
+        candidate.primer3_pair_penalty,
+    )
+
+
 def design_pcr_primers(
     template: str,
     product_min: int = 120,
@@ -139,12 +166,13 @@ def design_pcr_primers(
         target_region = (target_start, target_length)
         sequence_args["SEQUENCE_TARGET"] = [target_start, target_length]
 
+    internal_count = min(50, max(primer_count, primer_count * 5, 20))
     global_args = {
         "PRIMER_TASK": "generic",
         "PRIMER_PICK_LEFT_PRIMER": 1,
         "PRIMER_PICK_RIGHT_PRIMER": 1,
         "PRIMER_PICK_INTERNAL_OLIGO": 0,
-        "PRIMER_NUM_RETURN": primer_count,
+        "PRIMER_NUM_RETURN": internal_count,
         "PRIMER_PRODUCT_SIZE_RANGE": [[product_min, product_max]],
         "PRIMER_MIN_SIZE": 18,
         "PRIMER_OPT_SIZE": 20,
@@ -204,6 +232,10 @@ def design_pcr_primers(
     warnings = []
     if not candidates:
         warnings.append("Primer3 did not return candidates for the selected constraints.")
+
+    candidates = sorted(candidates, key=_candidate_score)[:primer_count]
+    for rank, candidate in enumerate(candidates, start=1):
+        candidate.rank = rank
 
     return PrimerDesignResult(
         template_length=len(seq),
