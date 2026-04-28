@@ -174,14 +174,14 @@ def design_pcr_primers(
         "PRIMER_PICK_INTERNAL_OLIGO": 0,
         "PRIMER_NUM_RETURN": internal_count,
         "PRIMER_PRODUCT_SIZE_RANGE": [[product_min, product_max]],
-        "PRIMER_MIN_SIZE": 18,
+        "PRIMER_MIN_SIZE": 17,
         "PRIMER_OPT_SIZE": 20,
-        "PRIMER_MAX_SIZE": 25,
-        "PRIMER_MIN_TM": primer_min_tm,
+        "PRIMER_MAX_SIZE": 30,
+        "PRIMER_MIN_TM": min(primer_min_tm, 55.0),
         "PRIMER_OPT_TM": primer_opt_tm,
-        "PRIMER_MAX_TM": primer_max_tm,
-        "PRIMER_MIN_GC": 35,
-        "PRIMER_MAX_GC": 65,
+        "PRIMER_MAX_TM": max(primer_max_tm, 65.0),
+        "PRIMER_MIN_GC": 30,
+        "PRIMER_MAX_GC": 70,
         "PRIMER_MAX_POLY_X": 4,
         "PRIMER_MAX_SELF_ANY_TH": 45,
         "PRIMER_MAX_SELF_END_TH": 35,
@@ -231,11 +231,22 @@ def design_pcr_primers(
 
     warnings = []
     if not candidates:
-        warnings.append("Primer3 did not return candidates for the selected constraints.")
+        warnings.append(
+            "Primer3 did not return candidates for the selected constraints. "
+            "Relax product size or target constraints, or provide more upstream/downstream sequence "
+            "so PrimerDesigner has more binding sites to consider."
+        )
 
     candidates = sorted(candidates, key=_candidate_score)[:primer_count]
     for rank, candidate in enumerate(candidates, start=1):
         candidate.rank = rank
+
+    if candidates and all(candidate.warnings for candidate in candidates):
+        warnings.append(
+            "No warning-free primer pair was found under the current template and constraints. "
+            "Relax product size or target constraints, or provide more upstream/downstream sequence "
+            "so PrimerDesigner has more binding sites to consider."
+        )
 
     return PrimerDesignResult(
         template_length=len(seq),

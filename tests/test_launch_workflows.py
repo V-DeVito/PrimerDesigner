@@ -21,6 +21,14 @@ TEMPLATE = (
     "CCATCAGTTGCGACGTAAGGCGGGGGAATGGGACGCCGCAATACGTGGGCGCGTATGTTAT"
 )
 
+REPETITIVE_TEMPLATE = (
+    "ATGCGTACGTAGCTAGCTACGATCGATCGTACGTAGCTAGCTAGCGATCGATCGTACGTAGCTAGCTAGC"
+    "ATCGATCGATGCTAGCTAGCTAGCATCGATCGTACGTAGCTAGCTAGCATCGATCGATCGATCGATCGTAC"
+    "GTAGCTAGCTAGCATCGATCGATCGTACGATCGATCGTAGCTAGCTAGCTAGCTAGCATCGATCGTACGAT"
+    "CGATCGATCGATCGATCGTAGCTAGCTAGCATCGATCGATCGTAGCTAGCATCGATCGATCGTAGCTAGCT"
+    "AGCATCGATCGATCGTAGCTAGCTAGCTAGCATCGATCG"
+)
+
 
 class CoreWorkflowTests(unittest.TestCase):
     def test_analyze_primer_reports_core_metrics(self):
@@ -55,6 +63,16 @@ class CoreWorkflowTests(unittest.TestCase):
         self.assertGreaterEqual(result.candidates[0].product_size, 120)
         self.assertLessEqual(result.candidates[0].product_size, 320)
         self.assertEqual(result.candidates[0].warnings, [])
+
+    def test_design_warns_when_no_clean_pair_is_found(self):
+        result = design_pcr_primers(
+            "ATGC" * 160,
+            product_min=120,
+            product_max=320,
+            primer_count=3,
+        )
+        self.assertTrue(result.warnings)
+        self.assertIn("Relax product size", result.warnings[0])
 
 
 class ApiWorkflowTests(unittest.TestCase):
