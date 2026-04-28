@@ -57,7 +57,7 @@ class CoreWorkflowTests(unittest.TestCase):
     def test_design_returns_ranked_candidates(self):
         result = design_pcr_primers(TEMPLATE, product_min=120, product_max=320, primer_count=3)
         self.assertEqual(result.template_length, len(TEMPLATE))
-        self.assertGreaterEqual(len(result.candidates), 1)
+        self.assertEqual(len(result.candidates), 1)
         self.assertEqual(result.candidates[0].rank, 1)
         self.assertEqual(result.candidates[0].product_size, len(TEMPLATE))
         self.assertEqual(result.candidates[0].forward_coords.start, 0)
@@ -75,6 +75,26 @@ class CoreWorkflowTests(unittest.TestCase):
         self.assertGreaterEqual(result.candidates[0].product_size, 120)
         self.assertLessEqual(result.candidates[0].product_size, 320)
         self.assertGreater(result.candidates[0].forward_coords.start, 0)
+
+    def test_amplicon_candidates_are_coordinate_diverse(self):
+        result = design_pcr_primers(
+            TEMPLATE,
+            product_min=120,
+            product_max=320,
+            primer_count=8,
+            design_mode="amplicon",
+        )
+        self.assertGreaterEqual(len(result.candidates), 3)
+        for i, first in enumerate(result.candidates):
+            for second in result.candidates[i + 1:]:
+                same_local_cluster = (
+                    abs(first.forward_coords.start - second.forward_coords.start) <= 8
+                    and abs(first.forward_coords.end - second.forward_coords.end) <= 8
+                    and abs(first.reverse_coords.start - second.reverse_coords.start) <= 8
+                    and abs(first.reverse_coords.end - second.reverse_coords.end) <= 8
+                    and abs(first.product_size - second.product_size) <= 16
+                )
+                self.assertFalse(same_local_cluster)
 
     def test_design_warns_when_no_clean_pair_is_found(self):
         result = design_pcr_primers(
@@ -109,7 +129,7 @@ class ApiWorkflowTests(unittest.TestCase):
         )
         self.assertEqual(res.status_code, 200)
         body = res.json()
-        self.assertEqual(len(body["candidates"]), 2)
+        self.assertGreaterEqual(len(body["candidates"]), 1)
         self.assertIn("explanations", body["candidates"][0])
 
     def test_rejects_invalid_template(self):

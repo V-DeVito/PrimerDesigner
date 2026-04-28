@@ -185,6 +185,42 @@ def _candidate_score(candidate: PrimerPairCandidate) -> tuple[float, float, floa
     )
 
 
+def _near_duplicate(a: PrimerPairCandidate, b: PrimerPairCandidate) -> bool:
+    """True when two pairs represent the same practical primer choice."""
+    return (
+        abs(a.forward_coords.start - b.forward_coords.start) <= 8
+        and abs(a.forward_coords.end - b.forward_coords.end) <= 8
+        and abs(a.reverse_coords.start - b.reverse_coords.start) <= 8
+        and abs(a.reverse_coords.end - b.reverse_coords.end) <= 8
+        and abs(a.product_size - b.product_size) <= 16
+    )
+
+
+def _select_diverse_candidates(
+    candidates: list[PrimerPairCandidate],
+    primer_count: int,
+) -> tuple[list[PrimerPairCandidate], int]:
+    """
+    Keep the best pair from each local coordinate cluster.
+
+    Primer3 often returns many one- or two-base shifts around the same binding
+    sites. Those are useful internally for scoring, but they are not meaningful
+    alternatives for a user-facing candidate list.
+    """
+    selected: list[PrimerPairCandidate] = []
+    hidden_near_duplicates = 0
+
+    for candidate in sorted(candidates, key=_candidate_score):
+        if any(_near_duplicate(candidate, kept) for kept in selected):
+            hidden_near_duplicates += 1
+            continue
+        selected.append(candidate)
+        if len(selected) >= primer_count:
+            break
+
+    return selected, hidden_near_duplicates
+
+
 def _exact_end_candidates(
     seq: str,
     primer_count: int,
@@ -261,7 +297,7 @@ def design_pcr_primers(
     if design_mode == "exact":
         candidates = _exact_end_candidates(
             seq,
-            primer_count,
+            1,
             mv_conc=mv_conc,
             dv_conc=dv_conc,
             dntp_conc=dntp_conc,
@@ -287,7 +323,7 @@ def design_pcr_primers(
             warnings=warnings,
         )
 
-    internal_count = min(50, max(primer_count, primer_count * 5, 20))
+    internal_count = min(100, max(primer_count, primer_count * 12, 30))
     global_args = {
         "PRIMER_TASK": "generic",
         "PRIMER_PICK_LEFT_PRIMER": 1,
@@ -358,9 +394,15 @@ def design_pcr_primers(
             "so PrimerDesigner has more binding sites to consider."
         )
 
-    candidates = sorted(candidates, key=_candidate_score)[:primer_count]
+    candidates, hidden_near_duplicates = _select_diverse_candidates(candidates, primer_count)
     for rank, candidate in enumerate(candidates, start=1):
         candidate.rank = rank
+
+    if hidden_near_duplicates and len(candidates) < primer_count:
+        warnings.append(
+            f"{hidden_near_duplicates} near-duplicate primer pair(s) were hidden; fewer "
+            "meaningfully distinct candidates were available under the current constraints."
+        )
 
     if candidates and all(candidate.warnings for candidate in candidates):
         warnings.append(

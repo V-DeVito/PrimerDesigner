@@ -112,9 +112,9 @@ R_Kan\tGTCCTGGGTTTCAAGCATTAGTCCA`);
 				design_mode: designGoal,
 				product_min: Number(productMin),
 				product_max: Number(productMax),
-				primer_count: Number(primerCount),
-				target_start: optionalNumber(targetStart),
-				target_length: optionalNumber(targetLength),
+				primer_count: designGoal === 'exact' ? 1 : Number(primerCount),
+				target_start: designGoal === 'exact' ? null : optionalNumber(targetStart),
+				target_length: designGoal === 'exact' ? null : optionalNumber(targetLength),
 				conditions: conditions()
 			});
 		} catch (e) {
@@ -275,16 +275,24 @@ R_Kan\tGTCCTGGGTTTCAAGCATTAGTCCA`);
 				</label>
 				<label>
 					<span class="block text-[10px] uppercase tracking-wider text-gray-400">Candidates</span>
-					<input class="mt-1 w-full border border-gray-200 px-2 py-1.5 font-mono" type="number" min="1" max="20" bind:value={primerCount} />
+					<input
+						class="mt-1 w-full border border-gray-200 px-2 py-1.5 font-mono disabled:bg-gray-50 disabled:text-gray-300"
+						type="number"
+						min="1"
+						max="20"
+						value={designGoal === 'exact' ? 1 : primerCount}
+						disabled={designGoal === 'exact'}
+						oninput={(event) => primerCount = event.currentTarget.value}
+					/>
 				</label>
 				<div></div>
 				<label>
 					<span class="block text-[10px] uppercase tracking-wider text-gray-400">Target start</span>
-					<input class="mt-1 w-full border border-gray-200 px-2 py-1.5 font-mono" type="number" min="0" placeholder="optional" bind:value={targetStart} />
+					<input class="mt-1 w-full border border-gray-200 px-2 py-1.5 font-mono disabled:bg-gray-50 disabled:text-gray-300" type="number" min="0" placeholder="optional" bind:value={targetStart} disabled={designGoal === 'exact'} />
 				</label>
 				<label>
 					<span class="block text-[10px] uppercase tracking-wider text-gray-400">Target length</span>
-					<input class="mt-1 w-full border border-gray-200 px-2 py-1.5 font-mono" type="number" min="1" placeholder="optional" bind:value={targetLength} />
+					<input class="mt-1 w-full border border-gray-200 px-2 py-1.5 font-mono disabled:bg-gray-50 disabled:text-gray-300" type="number" min="1" placeholder="optional" bind:value={targetLength} disabled={designGoal === 'exact'} />
 				</label>
 			</div>
 			<button
