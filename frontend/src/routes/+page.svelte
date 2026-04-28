@@ -10,17 +10,16 @@
 	} from '$lib/api.js';
 
 	const sampleTemplate = `>example_template
-TAGACCCCTACACCACGTAGAAAACTCATCCTGTTCGACATGAGCTGGCCACTCCTGGACATCGCACAGCTTT
-ATTCGGCGACTTCACGTCCGCGAGCATTTAGAAAACAGTGATGGATTGTGGCGCCAAGCGCTGAGTCATACTAT
-CCTCTACGCAGTTAGAAGGTCGTAATCTACTGATCTCACGCAGCGATTGTGCTGACGCTAAATTTTGGGGGGAG
-TCTAGACACTTGACATAGGGACGAAGAAACAATTCTACTTTACCGGCGATGAAAGGCCGCAAGCAGTCGGTTGT
-TGAGACAGTCGAGTGGTGAATTATCAGAAAAGGCCTAGATTTTGGAGTTTAGTTGCTATGACCGCCACGTGCAC
-AAGTTTGGCCTATCATGCTTGCCTCGGTAAGTTGGGGTCAACTTGCTACCGCTAAGAGATACTCCCTGCTCTAC
-CAGGTCATCAATGTTGTTGGGCTGCCATCTGAAAAGTAGGCGGAACCGGCGCACCTAGTCCGTCTGACCCGACT
-GACTCGTAAGGCGTCGCTCAGACAGACATTACGGTTTGGAAGCATGGGTCCTCGGTGTACGCTGTATCTGCTTT
-CGGCTATGAATCGCATAAATACCGGATATCTCCCTTTGCCTCGGCATAAAACGCGTCTTAACTACGTACGAAAT
-AGACATACTGTCCGGGTTATGCAGCTCAGAGTATATCAAACGAGATACTCCAGAGGAGACAGGTGCAGACTTGG
-CCATCAGTTGCGACGTAAGGCGGGGGAATGGGACGCCGCAATACGTGGGCGCGTATGTTAT`;
+TGACCTAAACGATGGTAGTAGGTTGGGAGCTTTCGAGAGGTCCGCCTTGGAAACGCGTTACTCGTGCGTGAATGTAGTGC
+AAGAGGAGGGTCAGTCGTGCTGAGACTGGGACTCTAAAATTACTGAAGCTCTTCCCATCCTCTCTAAGGTTTCGTGAGAC
+ACCACTTGGCGCTGGCCAGTACTGATCCCCTATTAGACCTATTGCCAAAACGTAGAAGGAACCTGCTCCAAAGCCCATGC
+CATGTTTGCGGATAGAACCATCGGTTAAGCGCCCTGGGTCATTGGTGAACTGGGTGAAAGATTCAATCTGCTCTGGTGCC
+CGGCCAGTCGCCATACGGAGCTCATTAGTATCGATTATAGAAGAGTTCTAGATCTTGCACTTGCGCGTCACAGAGTATAA
+TTACTCCGTTACGGCATGGCGATGAAGCGATACTATAGTGAAATGAAACTTGTGGCCATCCAGGTCGTTACCGGCCGTGG
+AACGGTGATATGTCAGACTTATAAGGTATATTGAGGGTTTAATAGCATTCCCGGCCAATTGTGTGTGCGATTGTTAAATG
+GCAGCTTCCGGACTCACTAGGAACTATTGAACCTTATTGTCGGTGGGGATGTCCAATTTTAGAATTGAGCGTCGATGCAA
+GGATCACAGTTTTAAAAGCAAGTTAAATCTAGGGTAAATAGCGGTGCTCTCATGCGTGTGGGTCGGGTGATGTTCAGAAA
+ATTTGCCTCCGAGAATACACTCATGGGTAGGACTCGCACTACCTAAGATTCCGCGCGCAGCACCGTTCGAGATTCTGCCC`;
 
 	let active = $state('design');
 
@@ -31,6 +30,7 @@ CCATCAGTTGCGACGTAAGGCGGGGGAATGGGACGCCGCAATACGTGGGCGCGTATGTTAT`;
 	let showConditions = $state(false);
 
 	let templateInput = $state(sampleTemplate);
+	let designGoal = $state('exact');
 	let productMin = $state(120);
 	let productMax = $state(320);
 	let primerCount = $state(5);
@@ -109,6 +109,7 @@ R_Kan\tGTCCTGGGTTTCAAGCATTAGTCCA`);
 		try {
 			designResults = await designPrimers({
 				template: templateInput,
+				design_mode: designGoal,
 				product_min: Number(productMin),
 				product_max: Number(productMax),
 				primer_count: Number(primerCount),
@@ -257,13 +258,20 @@ R_Kan\tGTCCTGGGTTTCAAGCATTAGTCCA`);
 		<aside class="border border-gray-200 bg-white p-4">
 			<h2 class="text-sm font-semibold text-gray-900">Design constraints</h2>
 			<div class="mt-4 grid grid-cols-2 gap-3 text-[12px]">
+				<label class="col-span-2">
+					<span class="block text-[10px] uppercase tracking-wider text-gray-400">Design goal</span>
+					<select class="mt-1 w-full border border-gray-200 bg-white px-2 py-2" bind:value={designGoal}>
+						<option value="exact">Exact sequence ends</option>
+						<option value="amplicon">Best internal amplicon</option>
+					</select>
+				</label>
 				<label>
 					<span class="block text-[10px] uppercase tracking-wider text-gray-400">Min product</span>
-					<input class="mt-1 w-full border border-gray-200 px-2 py-1.5 font-mono" type="number" min="40" max="5000" bind:value={productMin} />
+					<input class="mt-1 w-full border border-gray-200 px-2 py-1.5 font-mono disabled:bg-gray-50 disabled:text-gray-300" type="number" min="40" max="5000" bind:value={productMin} disabled={designGoal === 'exact'} />
 				</label>
 				<label>
 					<span class="block text-[10px] uppercase tracking-wider text-gray-400">Max product</span>
-					<input class="mt-1 w-full border border-gray-200 px-2 py-1.5 font-mono" type="number" min="40" max="5000" bind:value={productMax} />
+					<input class="mt-1 w-full border border-gray-200 px-2 py-1.5 font-mono disabled:bg-gray-50 disabled:text-gray-300" type="number" min="40" max="5000" bind:value={productMax} disabled={designGoal === 'exact'} />
 				</label>
 				<label>
 					<span class="block text-[10px] uppercase tracking-wider text-gray-400">Candidates</span>

@@ -274,11 +274,15 @@ def cmd_design(args):
         mv_conc=args.na,
         dv_conc=args.mg,
         dna_conc=args.dna,
+        design_mode=args.mode,
     )
 
     print(f"\n{'=' * 60}")
     print(f"  PCR PRIMER DESIGN — {result.template_length}bp template")
-    print(f"  Product range: {args.product_min}–{args.product_max}bp")
+    if args.mode == 'exact':
+        print("  Mode: exact sequence ends")
+    else:
+        print(f"  Product range: {args.product_min}–{args.product_max}bp")
     print(f"{'=' * 60}")
 
     if not result.candidates:
@@ -352,6 +356,7 @@ def main():
     p_design.add_argument('--product-min', type=int, default=120, help='Minimum product size')
     p_design.add_argument('--product-max', type=int, default=500, help='Maximum product size')
     p_design.add_argument('--count', type=int, default=5, help='Number of candidate pairs')
+    p_design.add_argument('--mode', choices=['exact', 'amplicon'], default='exact', help='Design exact sequence ends or best internal amplicon')
 
     # golden-gate
     p_gg = sub.add_parser('golden-gate', help='Check Golden Gate overhangs')

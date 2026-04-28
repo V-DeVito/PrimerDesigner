@@ -12,7 +12,7 @@ Endpoints:
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional
+from typing import Literal, Optional
 import re
 import sys
 import os
@@ -133,6 +133,7 @@ class PairRequest(BaseModel):
 
 class DesignRequest(BaseModel):
     template: str = Field(..., min_length=20, description="Template DNA or FASTA text")
+    design_mode: Literal["exact", "amplicon"] = Field("exact", description="Exact sequence ends or best internal amplicon")
     product_min: int = Field(120, ge=40, le=5000)
     product_max: int = Field(500, ge=40, le=5000)
     primer_count: int = Field(5, ge=1, le=20)
@@ -358,10 +359,10 @@ def design(req: DesignRequest):
     template = validate_dna(
         req.template,
         "template",
-        min_len=max(40, req.product_min),
+        min_len=max(40, req.product_min) if req.design_mode == "amplicon" else 40,
         max_len=MAX_TEMPLATE_LEN,
     )
-    if req.product_max > len(template):
+    if req.design_mode == "amplicon" and req.product_max > len(template):
         raise HTTPException(400, "product_max cannot exceed template length")
     if req.target_start is None and req.target_length is not None:
         raise HTTPException(400, "target_start is required when target_length is set")
@@ -382,6 +383,7 @@ def design(req: DesignRequest):
         dv_conc=req.conditions.mg_mm,
         dntp_conc=req.conditions.dntp_mm,
         dna_conc=req.conditions.dna_nm,
+        design_mode=req.design_mode,
     )
 
     return DesignResponse(

@@ -15,6 +15,13 @@ import primer3
 from .thermo import DimerResult, PairReport, analyze_pair
 
 
+_COMP = str.maketrans("ATGC", "TACG")
+
+
+def _reverse_complement(seq: str) -> str:
+    return seq.upper().translate(_COMP)[::-1]
+
+
 @dataclass
 class PrimerCoordinates:
     """Template coordinates for a designed primer."""
@@ -86,13 +93,21 @@ def _coord_from_right(value: list[int]) -> PrimerCoordinates:
     return PrimerCoordinates(start=end - length + 1, end=end, length=length, strand="-")
 
 
-def _candidate_explanations(pair: PairReport, product_size: int, penalty: float) -> list[str]:
+def _candidate_explanations(
+    pair: PairReport,
+    product_size: int,
+    penalty: float,
+    design_mode: str,
+) -> list[str]:
     explanations = [
         f"Product size is {product_size} bp.",
-        f"Primer3 pair penalty is {penalty:.2f}; lower ranked pairs are closer to the configured targets.",
         f"Forward/reverse Tm difference is {pair.tm_difference:.1f} C.",
         f"Pair heterodimer delta G is {pair.heterodimer.dg:.2f} kcal/mol.",
     ]
+    if design_mode == "exact":
+        explanations.append("Exact-sequence mode fixes primer binding to the submitted 5' and 3' ends, then varies primer length.")
+    else:
+        explanations.append(f"Primer3 pair penalty is {penalty:.2f}; lower values are closer to the configured amplicon targets.")
 
     if pair.tm_difference <= 2:
         explanations.append("Tm values are tightly matched.")
@@ -117,6 +132,42 @@ def _dimer_excess(candidate: PrimerPairCandidate) -> float:
     return round(sum(max(0.0, -dg - 9.0) for dg in values), 3)
 
 
+def _hairpin_excess(candidate: PrimerPairCandidate) -> float:
+    values = [
+        candidate.pair.forward.hairpin.worst_dg,
+        candidate.pair.reverse.hairpin.worst_dg,
+    ]
+    return round(sum(max(0.0, -dg - 3.0) for dg in values), 3)
+
+
+def _continuous_quality(candidate: PrimerPairCandidate) -> float:
+    pair = candidate.pair
+    primers = [pair.forward, pair.reverse]
+    tm_score = sum(abs(primer.tm.tm - 60.0) / 6.0 for primer in primers)
+    gc_score = sum(abs((primer.gc_content * 100) - 50.0) / 15.0 for primer in primers)
+    length_score = sum(abs(primer.length - 20) / 8.0 for primer in primers)
+    hairpin_score = sum(max(0.0, -primer.hairpin.worst_dg) / 8.0 for primer in primers)
+    dimer_score = (
+        max(0.0, -pair.heterodimer.dg) +
+        max(0.0, -pair.forward.homodimer.dg) +
+        max(0.0, -pair.reverse.homodimer.dg)
+    ) / 18.0
+
+    return round(
+        (pair.tm_difference * 0.9) +
+        (tm_score * 0.7) +
+        (gc_score * 0.35) +
+        (length_score * 0.25) +
+        (hairpin_score * 0.45) +
+        (dimer_score * 0.75),
+        3,
+    )
+
+
+def _danger_excess(candidate: PrimerPairCandidate) -> float:
+    return round(_dimer_excess(candidate) + _hairpin_excess(candidate), 3)
+
+
 def _candidate_score(candidate: PrimerPairCandidate) -> tuple[float, float, float, float]:
     """
     Rank by PrimerDesigner's launch-facing quality first, then Primer3 penalty.
@@ -128,10 +179,50 @@ def _candidate_score(candidate: PrimerPairCandidate) -> tuple[float, float, floa
     """
     return (
         len(candidate.warnings),
-        _dimer_excess(candidate),
-        candidate.pair.tm_difference,
+        _danger_excess(candidate),
+        _continuous_quality(candidate),
         candidate.primer3_pair_penalty,
     )
+
+
+def _exact_end_candidates(
+    seq: str,
+    primer_count: int,
+    mv_conc: float,
+    dv_conc: float,
+    dntp_conc: float,
+    dna_conc: float,
+) -> list[PrimerPairCandidate]:
+    candidates = []
+    for forward_len in range(17, min(30, len(seq) - 17) + 1):
+        fwd_seq = seq[:forward_len]
+        for reverse_len in range(17, min(30, len(seq) - forward_len) + 1):
+            rev_seq = _reverse_complement(seq[-reverse_len:])
+            pair = analyze_pair(
+                fwd_seq,
+                rev_seq,
+                mv_conc=mv_conc,
+                dv_conc=dv_conc,
+                dntp_conc=dntp_conc,
+                dna_conc=dna_conc,
+            )
+            candidate = PrimerPairCandidate(
+                rank=0,
+                pair=pair,
+                forward_coords=PrimerCoordinates(start=0, end=forward_len - 1, length=forward_len, strand="+"),
+                reverse_coords=PrimerCoordinates(
+                    start=len(seq) - reverse_len,
+                    end=len(seq) - 1,
+                    length=reverse_len,
+                    strand="-",
+                ),
+                product_size=len(seq),
+                primer3_pair_penalty=0.0,
+            )
+            candidate.explanations = _candidate_explanations(pair, len(seq), 0.0, "exact")
+            candidates.append(candidate)
+
+    return sorted(candidates, key=_candidate_score)[:primer_count]
 
 
 def design_pcr_primers(
@@ -148,6 +239,7 @@ def design_pcr_primers(
     primer_min_tm: float = 57.0,
     primer_opt_tm: float = 60.0,
     primer_max_tm: float = 63.0,
+    design_mode: str = "exact",
 ) -> PrimerDesignResult:
     """
     Design PCR primer pairs for a DNA template.
@@ -165,6 +257,35 @@ def design_pcr_primers(
     if target_start is not None and target_length is not None:
         target_region = (target_start, target_length)
         sequence_args["SEQUENCE_TARGET"] = [target_start, target_length]
+
+    if design_mode == "exact":
+        candidates = _exact_end_candidates(
+            seq,
+            primer_count,
+            mv_conc=mv_conc,
+            dv_conc=dv_conc,
+            dntp_conc=dntp_conc,
+            dna_conc=dna_conc,
+        )
+        warnings = []
+        if candidates and all(candidate.warnings for candidate in candidates):
+            warnings.append(
+                "No warning-free exact-end primer pair was found. Provide upstream/downstream "
+                "flanking sequence or allow an internal amplicon so PrimerDesigner has more "
+                "binding sites to consider."
+            )
+
+        for rank, candidate in enumerate(candidates, start=1):
+            candidate.rank = rank
+
+        return PrimerDesignResult(
+            template_length=len(seq),
+            product_size_range=(len(seq), len(seq)),
+            target_region=target_region,
+            candidates=candidates,
+            primer3_explain={},
+            warnings=warnings,
+        )
 
     internal_count = min(50, max(primer_count, primer_count * 5, 20))
     global_args = {
@@ -220,7 +341,7 @@ def design_pcr_primers(
             primer3_pair_compl_any=raw.get(f"PRIMER_PAIR_{i}_COMPL_ANY_TH"),
             primer3_pair_compl_end=raw.get(f"PRIMER_PAIR_{i}_COMPL_END_TH"),
         )
-        candidate.explanations = _candidate_explanations(pair, product_size, penalty)
+        candidate.explanations = _candidate_explanations(pair, product_size, penalty, "amplicon")
         candidates.append(candidate)
 
     explain = {
