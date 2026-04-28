@@ -1,0 +1,94 @@
+import unittest
+
+from fastapi.testclient import TestClient
+
+from api.main import app
+from primerdesignr.design import design_pcr_primers
+from primerdesignr.thermo import analyze_pair, analyze_primer
+
+
+TEMPLATE = (
+    "ATGCGTACGTAGCTAGCTACGATCGATCGTACGTAGCTAGCTAGCGATCGATCGTACGTAGCTAGCTAGC"
+    "ATCGATCGATGCTAGCTAGCTAGCATCGATCGTACGTAGCTAGCTAGCATCGATCGATCGATCGATCGTAC"
+    "GTAGCTAGCTAGCATCGATCGATCGTACGATCGATCGTAGCTAGCTAGCTAGCTAGCATCGATCGTACGAT"
+    "CGATCGATCGATCGATCGTAGCTAGCTAGCATCGATCGATCGTAGCTAGCATCGATCGATCGTAGCTAGCT"
+    "AGCATCGATCGATCGTAGCTAGCTAGCTAGCATCGATCG"
+)
+
+
+class CoreWorkflowTests(unittest.TestCase):
+    def test_analyze_primer_reports_core_metrics(self):
+        report = analyze_primer("GTCTTCACATCGGTTTGAAAGGAGG")
+        self.assertEqual(report.length, 25)
+        self.assertGreater(report.tm.tm, 50)
+        self.assertLess(report.tm.tm, 70)
+        self.assertIsInstance(report.warnings, list)
+
+    def test_pair_analysis_uses_shared_conditions(self):
+        low_salt = analyze_pair(
+            "GTCTTCACATCGGTTTGAAAGGAGG",
+            "AACCCGCTCCGATTAAAGCTACTTT",
+            mv_conc=10,
+            dv_conc=0,
+            dna_conc=250,
+        )
+        high_salt = analyze_pair(
+            "GTCTTCACATCGGTTTGAAAGGAGG",
+            "AACCCGCTCCGATTAAAGCTACTTT",
+            mv_conc=100,
+            dv_conc=2,
+            dna_conc=250,
+        )
+        self.assertNotEqual(low_salt.forward.tm.tm, high_salt.forward.tm.tm)
+
+    def test_design_returns_ranked_candidates(self):
+        result = design_pcr_primers(TEMPLATE, product_min=120, product_max=320, primer_count=3)
+        self.assertEqual(result.template_length, len(TEMPLATE))
+        self.assertGreaterEqual(len(result.candidates), 1)
+        self.assertEqual(result.candidates[0].rank, 1)
+        self.assertGreaterEqual(result.candidates[0].product_size, 120)
+        self.assertLessEqual(result.candidates[0].product_size, 320)
+
+
+class ApiWorkflowTests(unittest.TestCase):
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_health(self):
+        res = self.client.get("/health")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()["status"], "ok")
+
+    def test_design_endpoint(self):
+        res = self.client.post(
+            "/design",
+            json={
+                "template": TEMPLATE,
+                "product_min": 120,
+                "product_max": 320,
+                "primer_count": 2,
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        body = res.json()
+        self.assertEqual(len(body["candidates"]), 2)
+        self.assertIn("explanations", body["candidates"][0])
+
+    def test_rejects_invalid_template(self):
+        res = self.client.post(
+            "/design",
+            json={"template": "ATGCNNNNATGCATGCATGC", "product_min": 40, "product_max": 80},
+        )
+        self.assertEqual(res.status_code, 400)
+
+    def test_golden_gate_endpoint(self):
+        res = self.client.post(
+            "/golden-gate",
+            json={"overhangs": ["AACG", "AATG", "ATAG"], "enzyme": "BsaI"},
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(res.json()["all_unique"])
+
+
+if __name__ == "__main__":
+    unittest.main()

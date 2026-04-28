@@ -13,6 +13,3 @@ __pycache__/
 # Claude
 .claude/
 .claude-worktrees/
-
-# Lock files
-frontend/package-lock.json

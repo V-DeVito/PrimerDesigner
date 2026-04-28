@@ -13,7 +13,7 @@ primer3-py is GPL v2, contained server-side. seqfold is MIT.
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import List
 import primer3
 from seqfold import dg as seqfold_dg, fold as seqfold_fold, dot_bracket
 
@@ -149,11 +149,26 @@ def calc_homodimer(seq: str, temp: float = 37.0) -> DimerResult:
 
     Two copies of the same primer hybridizing to each other.
     """
+    return calc_homodimer_with_conditions(seq, temp_c=temp)
+
+
+def calc_homodimer_with_conditions(
+    seq: str,
+    mv_conc: float = 50.0,
+    dv_conc: float = 0.0,
+    dntp_conc: float = 0.0,
+    dna_conc: float = 250.0,
+    temp_c: float = 37.0,
+) -> DimerResult:
+    """Homodimer ΔG using the same salt/primer conditions as Tm calculation."""
     result = primer3.calc_homodimer(
         seq,
-        mv_conc=50.0,
-        dv_conc=1.5,
-        temp_c=temp,
+        mv_conc=mv_conc,
+        dv_conc=dv_conc,
+        dntp_conc=dntp_conc,
+        dna_conc=dna_conc,
+        temp_c=temp_c,
+        output_structure=True,
     )
     return DimerResult(
         dg=round(result.dg / 1000, 2),  # primer3 returns cal/mol
@@ -167,11 +182,27 @@ def calc_heterodimer(seq1: str, seq2: str, temp: float = 37.0) -> DimerResult:
 
     Forward and reverse primers hybridizing to each other.
     """
+    return calc_heterodimer_with_conditions(seq1, seq2, temp_c=temp)
+
+
+def calc_heterodimer_with_conditions(
+    seq1: str,
+    seq2: str,
+    mv_conc: float = 50.0,
+    dv_conc: float = 0.0,
+    dntp_conc: float = 0.0,
+    dna_conc: float = 250.0,
+    temp_c: float = 37.0,
+) -> DimerResult:
+    """Heterodimer ΔG using the same salt/primer conditions as Tm calculation."""
     result = primer3.calc_heterodimer(
         seq1, seq2,
-        mv_conc=50.0,
-        dv_conc=1.5,
-        temp_c=temp,
+        mv_conc=mv_conc,
+        dv_conc=dv_conc,
+        dntp_conc=dntp_conc,
+        dna_conc=dna_conc,
+        temp_c=temp_c,
+        output_structure=True,
     )
     return DimerResult(
         dg=round(result.dg / 1000, 2),
@@ -256,7 +287,13 @@ def analyze_primer(
 
     tm = calc_tm(seq, mv_conc, dv_conc, dntp_conc, dna_conc)
     hairpin = calc_hairpin(seq)
-    homodimer = calc_homodimer(seq)
+    homodimer = calc_homodimer_with_conditions(
+        seq,
+        mv_conc=mv_conc,
+        dv_conc=dv_conc,
+        dntp_conc=dntp_conc,
+        dna_conc=dna_conc,
+    )
     warnings = _generate_warnings(seq, tm, hairpin, homodimer)
 
     return PrimerReport(
@@ -274,7 +311,14 @@ def analyze_pair(fwd: str, rev: str, **kwargs) -> PairReport:
     """Analyze a primer pair including cross-dimer check."""
     fwd_report = analyze_primer(fwd, **kwargs)
     rev_report = analyze_primer(rev, **kwargs)
-    heterodimer = calc_heterodimer(fwd, rev)
+    heterodimer = calc_heterodimer_with_conditions(
+        fwd,
+        rev,
+        mv_conc=kwargs.get('mv_conc', 50.0),
+        dv_conc=kwargs.get('dv_conc', 0.0),
+        dntp_conc=kwargs.get('dntp_conc', 0.0),
+        dna_conc=kwargs.get('dna_conc', 250.0),
+    )
 
     tm_diff = round(abs(fwd_report.tm.tm - rev_report.tm.tm), 1)
 
@@ -293,7 +337,13 @@ def analyze_pair(fwd: str, rev: str, **kwargs) -> PairReport:
     )
 
 
-def cross_dimer_matrix(primers: dict[str, str]) -> dict[tuple[str, str], DimerResult]:
+def cross_dimer_matrix(
+    primers: dict[str, str],
+    mv_conc: float = 50.0,
+    dv_conc: float = 0.0,
+    dntp_conc: float = 0.0,
+    dna_conc: float = 250.0,
+) -> dict[tuple[str, str], DimerResult]:
     """
     Compute all pairwise heterodimer ΔG values.
 
@@ -309,7 +359,14 @@ def cross_dimer_matrix(primers: dict[str, str]) -> dict[tuple[str, str], DimerRe
     for i in range(len(names)):
         for j in range(i + 1, len(names)):
             n1, n2 = names[i], names[j]
-            result = calc_heterodimer(primers[n1], primers[n2])
+            result = calc_heterodimer_with_conditions(
+                primers[n1],
+                primers[n2],
+                mv_conc=mv_conc,
+                dv_conc=dv_conc,
+                dntp_conc=dntp_conc,
+                dna_conc=dna_conc,
+            )
             results[(n1, n2)] = result
 
     return results

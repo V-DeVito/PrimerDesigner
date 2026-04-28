@@ -12,6 +12,8 @@ from .thermo import (
     calc_hairpin,
     calc_homodimer,
     calc_heterodimer,
+    calc_homodimer_with_conditions,
+    calc_heterodimer_with_conditions,
     PrimerReport,
     PairReport,
     TmResult,
@@ -28,6 +30,13 @@ from .assembly import (
     GoldenGateResult,
     OverhangCheck,
     AssemblyRecommendation,
+)
+
+from .design import (
+    design_pcr_primers,
+    PrimerCoordinates,
+    PrimerDesignResult,
+    PrimerPairCandidate,
 )
 
 __version__ = '0.1.0'

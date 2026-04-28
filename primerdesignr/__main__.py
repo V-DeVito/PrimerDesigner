@@ -25,6 +25,7 @@ from .thermo import (
     PrimerReport, PairReport, DimerResult,
 )
 from .assembly import check_golden_gate, check_overhang
+from .design import design_pcr_primers
 
 
 def _parse_primer_input(text: str) -> Dict[str, str]:
@@ -254,6 +255,47 @@ def cmd_batch(args):
     cmd_analyze(args)
 
 
+def cmd_design(args):
+    """Design PCR primer pairs from a template sequence."""
+    if args.file:
+        with open(args.file) as f:
+            raw = f.read()
+    elif args.template:
+        raw = args.template
+    else:
+        print("Paste template sequence or FASTA (Ctrl+D or Ctrl+Z to finish):")
+        raw = sys.stdin.read()
+
+    result = design_pcr_primers(
+        raw,
+        product_min=args.product_min,
+        product_max=args.product_max,
+        primer_count=args.count,
+        mv_conc=args.na,
+        dv_conc=args.mg,
+        dna_conc=args.dna,
+    )
+
+    print(f"\n{'=' * 60}")
+    print(f"  PCR PRIMER DESIGN — {result.template_length}bp template")
+    print(f"  Product range: {args.product_min}–{args.product_max}bp")
+    print(f"{'=' * 60}")
+
+    if not result.candidates:
+        print("  No candidates returned.")
+        for key, value in result.primer3_explain.items():
+            print(f"  {key}: {value}")
+        return
+
+    for c in result.candidates:
+        print(f"\n  #{c.rank}  product={c.product_size}bp  penalty={c.primer3_pair_penalty:.2f}")
+        print(f"    FWD {c.pair.forward.sequence}  Tm={c.pair.forward.tm.tm}°C")
+        print(f"    REV {c.pair.reverse.sequence}  Tm={c.pair.reverse.tm.tm}°C")
+        print(f"    ΔTm={c.pair.tm_difference}°C  heterodimer={c.heterodimer.dg:.2f} kcal/mol")
+        for w in c.warnings:
+            print(f"    ⚠ {w}")
+
+
 def cmd_golden_gate(args):
     """Check Golden Gate overhangs."""
     result = check_golden_gate(
@@ -303,6 +345,14 @@ def main():
     p_batch.add_argument('file', help='File with primer sequences')
     p_batch.add_argument('--csv', help='Export results to CSV file')
 
+    # design
+    p_design = sub.add_parser('design', help='Design PCR primer pairs from a template')
+    p_design.add_argument('template', nargs='?', help='Template sequence; omit to read stdin')
+    p_design.add_argument('--file', help='Read template sequence from a file')
+    p_design.add_argument('--product-min', type=int, default=120, help='Minimum product size')
+    p_design.add_argument('--product-max', type=int, default=500, help='Maximum product size')
+    p_design.add_argument('--count', type=int, default=5, help='Number of candidate pairs')
+
     # golden-gate
     p_gg = sub.add_parser('golden-gate', help='Check Golden Gate overhangs')
     p_gg.add_argument('overhangs', nargs='+', help='4bp overhang sequences')
@@ -317,6 +367,8 @@ def main():
         cmd_pair(args)
     elif args.command == 'batch':
         cmd_batch(args)
+    elif args.command == 'design':
+        cmd_design(args)
     elif args.command == 'golden-gate':
         cmd_golden_gate(args)
     else:
