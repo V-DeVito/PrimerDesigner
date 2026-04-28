@@ -106,6 +106,8 @@ def _candidate_explanations(
     ]
     if design_mode == "exact":
         explanations.append("Exact-sequence mode fixes primer binding to the submitted 5' and 3' ends, then varies primer length.")
+    elif design_mode == "targeted":
+        explanations.append("Required-region mode keeps the selected coordinates inside the amplicon and requires primers to flank that region.")
     else:
         explanations.append(f"Primer3 pair penalty is {penalty:.2f}; lower values are closer to the configured amplicon targets.")
 
@@ -221,6 +223,11 @@ def _select_diverse_candidates(
     return selected, hidden_near_duplicates
 
 
+def _flanks_target(candidate: PrimerPairCandidate, target_start: int, target_length: int) -> bool:
+    target_end = target_start + target_length - 1
+    return candidate.forward_coords.end < target_start and candidate.reverse_coords.start > target_end
+
+
 def _exact_end_candidates(
     seq: str,
     primer_count: int,
@@ -284,6 +291,9 @@ def design_pcr_primers(
     supplied, Primer3 is asked to include that region in the amplicon.
     """
     seq = _clean_template(template)
+    if design_mode not in {"exact", "targeted", "amplicon"}:
+        raise ValueError("design_mode must be one of: exact, targeted, amplicon")
+
     target_region = None
     sequence_args: dict[str, object] = {
         "SEQUENCE_ID": "template",
@@ -293,6 +303,9 @@ def design_pcr_primers(
     if target_start is not None and target_length is not None:
         target_region = (target_start, target_length)
         sequence_args["SEQUENCE_TARGET"] = [target_start, target_length]
+
+    if design_mode == "targeted" and target_region is None:
+        raise ValueError("targeted design requires target_start and target_length")
 
     if design_mode == "exact":
         candidates = _exact_end_candidates(
@@ -306,9 +319,9 @@ def design_pcr_primers(
         warnings = []
         if candidates and all(candidate.warnings for candidate in candidates):
             warnings.append(
-                "No warning-free exact-end primer pair was found. Provide upstream/downstream "
-                "flanking sequence or allow an internal amplicon so PrimerDesigner has more "
-                "binding sites to consider."
+                "No warning-free exact-bound primer pair was found. Exact submitted bounds only "
+                "allow primer length changes; provide more upstream/downstream bp if you want "
+                "alternate binding sites to consider."
             )
 
         for rank, candidate in enumerate(candidates, start=1):
@@ -354,6 +367,7 @@ def design_pcr_primers(
     returned = int(raw.get("PRIMER_PAIR_NUM_RETURNED", 0))
 
     candidates: list[PrimerPairCandidate] = []
+    rejected_not_flanking = 0
     for i in range(returned):
         fwd_seq = raw[f"PRIMER_LEFT_{i}_SEQUENCE"]
         rev_seq = raw[f"PRIMER_RIGHT_{i}_SEQUENCE"]
@@ -377,7 +391,14 @@ def design_pcr_primers(
             primer3_pair_compl_any=raw.get(f"PRIMER_PAIR_{i}_COMPL_ANY_TH"),
             primer3_pair_compl_end=raw.get(f"PRIMER_PAIR_{i}_COMPL_END_TH"),
         )
-        candidate.explanations = _candidate_explanations(pair, product_size, penalty, "amplicon")
+        candidate.explanations = _candidate_explanations(pair, product_size, penalty, design_mode)
+        if (
+            design_mode == "targeted"
+            and target_region is not None
+            and not _flanks_target(candidate, target_region[0], target_region[1])
+        ):
+            rejected_not_flanking += 1
+            continue
         candidates.append(candidate)
 
     explain = {
@@ -388,10 +409,23 @@ def design_pcr_primers(
 
     warnings = []
     if not candidates:
+        if design_mode == "targeted":
+            warnings.append(
+                "No primer pair could flank the required region under the current constraints. "
+                "Provide more upstream/downstream bp around that region, relax product size, "
+                "or switch to exploratory internal amplicon mode."
+            )
+        else:
+            warnings.append(
+                "Primer3 did not return candidates for the selected constraints. "
+                "Relax product size or target constraints, or provide more upstream/downstream sequence "
+                "so PrimerDesigner has more binding sites to consider."
+            )
+
+    if rejected_not_flanking and candidates:
         warnings.append(
-            "Primer3 did not return candidates for the selected constraints. "
-            "Relax product size or target constraints, or provide more upstream/downstream sequence "
-            "so PrimerDesigner has more binding sites to consider."
+            f"{rejected_not_flanking} candidate pair(s) were hidden because they did not flank "
+            "the required region."
         )
 
     candidates, hidden_near_duplicates = _select_diverse_candidates(candidates, primer_count)
@@ -405,11 +439,17 @@ def design_pcr_primers(
         )
 
     if candidates and all(candidate.warnings for candidate in candidates):
-        warnings.append(
-            "No warning-free primer pair was found under the current template and constraints. "
-            "Relax product size or target constraints, or provide more upstream/downstream sequence "
-            "so PrimerDesigner has more binding sites to consider."
-        )
+        if design_mode == "targeted":
+            warnings.append(
+                "No warning-free primer pair could flank the required region. Provide more "
+                "upstream/downstream bp around that region or relax product size constraints."
+            )
+        else:
+            warnings.append(
+                "No warning-free primer pair was found under the current template and constraints. "
+                "Relax product size or target constraints, or provide more upstream/downstream sequence "
+                "so PrimerDesigner has more binding sites to consider."
+            )
 
     return PrimerDesignResult(
         template_length=len(seq),

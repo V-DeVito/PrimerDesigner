@@ -4,7 +4,7 @@ PrimerDesigner is an open-source web workbench for primer design and thermodynam
 
 ## Current Product
 
-- Design PCR primer pairs from a template sequence or FASTA paste.
+- Design PCR primer pairs from a template sequence or FASTA paste using exact-bound, required-region, or exploratory internal amplicon modes.
 - Analyze pasted primer sets for Tm, GC, hairpins, self-dimers, and cross-dimers.
 - Validate Golden Gate overhangs against uniqueness, reverse-complement collisions, palindromes, NEB high-fidelity sets, and internal Type IIS sites.
 - Export design and analysis results as CSV.

@@ -133,7 +133,7 @@ class PairRequest(BaseModel):
 
 class DesignRequest(BaseModel):
     template: str = Field(..., min_length=20, description="Template DNA or FASTA text")
-    design_mode: Literal["exact", "amplicon"] = Field("exact", description="Exact sequence ends or best internal amplicon")
+    design_mode: Literal["exact", "targeted", "amplicon"] = Field("exact", description="Exact bounds, required-region, or exploratory internal design")
     product_min: int = Field(120, ge=40, le=5000)
     product_max: int = Field(500, ge=40, le=5000)
     primer_count: int = Field(5, ge=1, le=20)
@@ -359,11 +359,13 @@ def design(req: DesignRequest):
     template = validate_dna(
         req.template,
         "template",
-        min_len=max(40, req.product_min) if req.design_mode == "amplicon" else 40,
+        min_len=max(40, req.product_min) if req.design_mode in {"targeted", "amplicon"} else 40,
         max_len=MAX_TEMPLATE_LEN,
     )
-    if req.design_mode == "amplicon" and req.product_max > len(template):
+    if req.design_mode in {"targeted", "amplicon"} and req.product_max > len(template):
         raise HTTPException(400, "product_max cannot exceed template length")
+    if req.design_mode == "targeted" and (req.target_start is None or req.target_length is None):
+        raise HTTPException(400, "target_start and target_length are required for required-region design")
     if req.target_start is None and req.target_length is not None:
         raise HTTPException(400, "target_start is required when target_length is set")
     if req.target_start is not None and req.target_length is None:

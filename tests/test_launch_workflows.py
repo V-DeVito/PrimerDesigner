@@ -76,6 +76,36 @@ class CoreWorkflowTests(unittest.TestCase):
         self.assertLessEqual(result.candidates[0].product_size, 320)
         self.assertGreater(result.candidates[0].forward_coords.start, 0)
 
+    def test_targeted_mode_requires_flanking_primers(self):
+        result = design_pcr_primers(
+            TEMPLATE,
+            product_min=160,
+            product_max=320,
+            primer_count=5,
+            design_mode="targeted",
+            target_start=360,
+            target_length=120,
+        )
+        target_end = 360 + 120 - 1
+        self.assertGreaterEqual(len(result.candidates), 1)
+        for candidate in result.candidates:
+            self.assertLess(candidate.forward_coords.end, 360)
+            self.assertGreater(candidate.reverse_coords.start, target_end)
+
+    def test_targeted_mode_warns_when_flanking_sequence_is_missing(self):
+        result = design_pcr_primers(
+            TEMPLATE,
+            product_min=120,
+            product_max=320,
+            primer_count=3,
+            design_mode="targeted",
+            target_start=0,
+            target_length=80,
+        )
+        self.assertEqual(result.candidates, [])
+        self.assertTrue(result.warnings)
+        self.assertIn("upstream/downstream bp", result.warnings[0])
+
     def test_amplicon_candidates_are_coordinate_diverse(self):
         result = design_pcr_primers(
             TEMPLATE,
@@ -131,6 +161,18 @@ class ApiWorkflowTests(unittest.TestCase):
         body = res.json()
         self.assertGreaterEqual(len(body["candidates"]), 1)
         self.assertIn("explanations", body["candidates"][0])
+
+    def test_targeted_endpoint_requires_target_coordinates(self):
+        res = self.client.post(
+            "/design",
+            json={
+                "template": TEMPLATE,
+                "design_mode": "targeted",
+                "product_min": 120,
+                "product_max": 320,
+            },
+        )
+        self.assertEqual(res.status_code, 400)
 
     def test_rejects_invalid_template(self):
         res = self.client.post(

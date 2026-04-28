@@ -106,6 +106,12 @@ R_Kan\tGTCCTGGGTTTCAAGCATTAGTCCA`);
 		designResults = null;
 		expandedCandidate = 1;
 
+		if (designGoal === 'targeted' && (targetStart === '' || targetLength === '')) {
+			designError = 'Required region coordinates are needed.';
+			designLoading = false;
+			return;
+		}
+
 		try {
 			designResults = await designPrimers({
 				template: templateInput,
@@ -261,8 +267,9 @@ R_Kan\tGTCCTGGGTTTCAAGCATTAGTCCA`);
 				<label class="col-span-2">
 					<span class="block text-[10px] uppercase tracking-wider text-gray-400">Design goal</span>
 					<select class="mt-1 w-full border border-gray-200 bg-white px-2 py-2" bind:value={designGoal}>
-						<option value="exact">Exact sequence ends</option>
-						<option value="amplicon">Best internal amplicon</option>
+						<option value="exact">Exact submitted bounds</option>
+						<option value="targeted">Required region</option>
+						<option value="amplicon">Exploratory internal amplicon</option>
 					</select>
 				</label>
 				<label>
@@ -287,12 +294,12 @@ R_Kan\tGTCCTGGGTTTCAAGCATTAGTCCA`);
 				</label>
 				<div></div>
 				<label>
-					<span class="block text-[10px] uppercase tracking-wider text-gray-400">Target start</span>
-					<input class="mt-1 w-full border border-gray-200 px-2 py-1.5 font-mono disabled:bg-gray-50 disabled:text-gray-300" type="number" min="0" placeholder="optional" bind:value={targetStart} disabled={designGoal === 'exact'} />
+					<span class="block text-[10px] uppercase tracking-wider text-gray-400">{designGoal === 'targeted' ? 'Required start' : 'Target start'}</span>
+					<input class="mt-1 w-full border border-gray-200 px-2 py-1.5 font-mono disabled:bg-gray-50 disabled:text-gray-300" type="number" min="0" placeholder={designGoal === 'targeted' ? 'required' : 'optional'} bind:value={targetStart} disabled={designGoal === 'exact'} />
 				</label>
 				<label>
-					<span class="block text-[10px] uppercase tracking-wider text-gray-400">Target length</span>
-					<input class="mt-1 w-full border border-gray-200 px-2 py-1.5 font-mono disabled:bg-gray-50 disabled:text-gray-300" type="number" min="1" placeholder="optional" bind:value={targetLength} disabled={designGoal === 'exact'} />
+					<span class="block text-[10px] uppercase tracking-wider text-gray-400">{designGoal === 'targeted' ? 'Required length' : 'Target length'}</span>
+					<input class="mt-1 w-full border border-gray-200 px-2 py-1.5 font-mono disabled:bg-gray-50 disabled:text-gray-300" type="number" min="1" placeholder={designGoal === 'targeted' ? 'required' : 'optional'} bind:value={targetLength} disabled={designGoal === 'exact'} />
 				</label>
 			</div>
 			<button

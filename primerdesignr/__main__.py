@@ -257,6 +257,10 @@ def cmd_batch(args):
 
 def cmd_design(args):
     """Design PCR primer pairs from a template sequence."""
+    if args.mode == 'targeted' and (args.target_start is None or args.target_length is None):
+        print("--target-start and --target-length are required with --mode targeted")
+        sys.exit(2)
+
     if args.file:
         with open(args.file) as f:
             raw = f.read()
@@ -271,6 +275,8 @@ def cmd_design(args):
         product_min=args.product_min,
         product_max=args.product_max,
         primer_count=args.count,
+        target_start=args.target_start,
+        target_length=args.target_length,
         mv_conc=args.na,
         dv_conc=args.mg,
         dna_conc=args.dna,
@@ -280,10 +286,17 @@ def cmd_design(args):
     print(f"\n{'=' * 60}")
     print(f"  PCR PRIMER DESIGN — {result.template_length}bp template")
     if args.mode == 'exact':
-        print("  Mode: exact sequence ends")
+        print("  Mode: exact submitted bounds")
+    elif args.mode == 'targeted':
+        print(f"  Mode: required region {args.target_start}–{args.target_start + args.target_length - 1}")
+        print(f"  Product range: {args.product_min}–{args.product_max}bp")
     else:
+        print("  Mode: exploratory internal amplicon")
         print(f"  Product range: {args.product_min}–{args.product_max}bp")
     print(f"{'=' * 60}")
+
+    for warning in result.warnings:
+        print(f"  ⚠ {warning}")
 
     if not result.candidates:
         print("  No candidates returned.")
@@ -356,7 +369,9 @@ def main():
     p_design.add_argument('--product-min', type=int, default=120, help='Minimum product size')
     p_design.add_argument('--product-max', type=int, default=500, help='Maximum product size')
     p_design.add_argument('--count', type=int, default=5, help='Number of candidate pairs')
-    p_design.add_argument('--mode', choices=['exact', 'amplicon'], default='exact', help='Design exact sequence ends or best internal amplicon')
+    p_design.add_argument('--mode', choices=['exact', 'targeted', 'amplicon'], default='exact', help='Design exact bounds, required-region, or exploratory internal amplicons')
+    p_design.add_argument('--target-start', type=int, help='0-based required-region start')
+    p_design.add_argument('--target-length', type=int, help='Required-region length')
 
     # golden-gate
     p_gg = sub.add_parser('golden-gate', help='Check Golden Gate overhangs')
