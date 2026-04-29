@@ -1,26 +1,42 @@
 <script>
 	import '../app.css';
+	import { onMount } from 'svelte';
 
 	let { children } = $props();
+	let theme = $state('cream');
+
+	onMount(() => {
+		const saved = localStorage.getItem('pw-theme');
+		theme = saved === 'dark' ? 'dark' : 'cream';
+		document.documentElement.dataset.theme = theme;
+	});
+
+	function toggleTheme() {
+		theme = theme === 'dark' ? 'cream' : 'dark';
+		document.documentElement.dataset.theme = theme;
+		localStorage.setItem('pw-theme', theme);
+	}
 </script>
 
 <div class="min-h-screen flex flex-col">
-	<header class="border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-		<a href="/" class="text-sm font-semibold tracking-tight text-gray-900">PrimerDesigner</a>
-		<nav class="flex items-center gap-4 text-[13px]">
-			<a href="https://github.com/V-DeVito/PrimerDesigner" target="_blank" rel="noopener"
-			   class="text-gray-400 hover:text-gray-900 transition-colors">
-				GitHub
-			</a>
-		</nav>
-	</header>
+	<div class="mx-auto w-full" style="max-width: 1180px; padding: var(--pad-page-y) var(--pad-page-x);">
+		<header class="flex items-center justify-between" style="margin-bottom: 28px;">
+			<div class="pw-eyebrow" style="font-size: 12px; letter-spacing: 0.12em;">
+				Primer Workbench
+			</div>
+			<div class="flex items-center gap-3">
+				<button class="pw-btn-quiet" onclick={toggleTheme} title="Toggle theme">
+					{theme === 'dark' ? 'Light' : 'Dark'}
+				</button>
+				<a href="https://github.com/V-DeVito/PrimerDesigner" target="_blank" rel="noopener"
+				   class="pw-btn-quiet" style="text-decoration: none;">
+					GitHub
+				</a>
+			</div>
+		</header>
 
-	<main class="flex-1 max-w-[960px] w-full mx-auto px-6 py-8">
-		{@render children()}
-	</main>
-
-	<footer class="border-t border-gray-200 px-6 py-3 text-[11px] text-gray-400 flex items-center justify-between">
-		<span>SantaLucia 2004 · Mathews/Turner NN parameters</span>
-		<span>Built by <a href="https://vicenzodevito.com" class="hover:text-gray-900">Vicenzo DeVito</a></span>
-	</footer>
+		<main>
+			{@render children()}
+		</main>
+	</div>
 </div>

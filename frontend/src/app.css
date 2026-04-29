@@ -1,30 +1,266 @@
 @import "tailwindcss";
 
-@theme {
-  --color-black: #000;
-  --color-white: #fff;
-  --color-gray-50: #fafafa;
-  --color-gray-100: #f5f5f5;
-  --color-gray-200: #e5e5e5;
-  --color-gray-400: #a3a3a3;
-  --color-gray-500: #737373;
-  --color-gray-700: #404040;
-  --color-gray-900: #171717;
+/* ───────────────────────────────────────────────────────────────
+   Primer Workbench — design tokens
+   Type: Instrument Sans (UI) + Azeret Mono (data). Hardcoded.
+   Palette: cream + dark only. Semantic accents: sage / blush / sky.
+   ─────────────────────────────────────────────────────────────── */
 
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+@theme {
+  --font-sans: 'Instrument Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: 'Azeret Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-body {
-  background: var(--color-white);
-  color: var(--color-gray-900);
+:root {
+  /* Cream (default / Light) */
+  --bg:        #F2F1ED;
+  --surface:   #FBFAF7;
+  --surface2:  #F6F5F1;
+  --ink:       #1B1C1D;
+  --ink-soft:  #46484B;
+  --muted:     #8B8E92;
+  --muted-soft:#BDBFC3;
+  --line:      rgba(30, 35, 45, 0.08);
+  --line-soft: rgba(30, 35, 45, 0.04);
+  --row-alt:   rgba(30, 35, 45, 0.02);
+  --card-shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 1px 2px rgba(20,25,30,0.03);
+
+  /* Semantic accents (light) */
+  --sage-bg: #D6E4CD; --sage-fg: #3E5A38; --sage-solid-bg: #7FA174; --sage-solid-fg: #FBF8F1;
+  --blush-bg: #EFCFCC; --blush-fg: #7A3838; --blush-solid-bg: #C66E6E; --blush-solid-fg: #FBF8F1;
+  --sky-bg: #CFDDE9; --sky-fg: #3A567A; --sky-solid-bg: #6A8FB6; --sky-solid-fg: #FBF8F1;
+
+  /* Locked accent: sky drives primary button */
+  --primary-bg: var(--sky-solid-bg);
+  --primary-fg: var(--sky-solid-fg);
+
+  /* Density: compact (locked) */
+  --pad-card: 16px;
+  --gap-section: 18px;
+  --gap-col: 16px;
+  --pad-page-y: 24px;
+  --pad-page-x: 32px;
+}
+
+[data-theme="dark"] {
+  --bg:        #161618;
+  --surface:   #1E1E20;
+  --surface2:  #252528;
+  --ink:       #E8E8E6;
+  --ink-soft:  #B0B0AE;
+  --muted:     #76767A;
+  --muted-soft:#4A4A4D;
+  --line:      rgba(255, 255, 255, 0.06);
+  --line-soft: rgba(255, 255, 255, 0.03);
+  --row-alt:   rgba(255, 255, 255, 0.015);
+  --card-shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 1px 2px rgba(0,0,0,0.3);
+
+  --sage-bg: #D6E4CDCC; --blush-bg: #EFCFCCCC; --sky-bg: #CFDDE9CC;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-/* DNA bases — subtle, not loud */
-.seq { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.02em; }
-.seq .A { color: #c0392b; }
-.seq .T { color: #2471a3; }
-.seq .G { color: #b7950b; }
-.seq .C { color: #1e8449; }
+button { font-family: inherit; }
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; }
+::selection { background: rgba(106, 143, 182, 0.35); }
+
+/* ── Component utilities ─────────────────────────────────────── */
+
+.pw-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--card-shadow);
+  padding: var(--pad-card);
+  color: var(--ink);
+}
+.pw-card-soft { background: var(--surface2); }
+.pw-card-flush { padding: 0; }
+
+.pw-section-label {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+}
+
+.pw-eyebrow,
+.pw-field-label {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.pw-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Primary button (sky) */
+.pw-btn-primary {
+  appearance: none;
+  border: none;
+  background: var(--primary-bg);
+  color: var(--primary-fg);
+  font-family: inherit;
+  font-weight: 500;
+  font-size: 14.5px;
+  letter-spacing: -0.005em;
+  padding: 10px 18px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform .12s, opacity .12s, filter .12s;
+}
+.pw-btn-primary:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-0.5px); }
+.pw-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Ghost button */
+.pw-btn-ghost {
+  appearance: none;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.pw-btn-ghost:hover { background: var(--surface2); }
+
+/* Subtle text-button */
+.pw-btn-quiet {
+  appearance: none;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  border: none;
+  cursor: pointer;
+}
+.pw-btn-quiet:hover { color: var(--ink); }
+
+/* Form inputs */
+.pw-input,
+.pw-select {
+  appearance: none;
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--ink);
+  outline: none;
+  font-variant-numeric: tabular-nums;
+}
+.pw-input:focus,
+.pw-select:focus { border-color: var(--muted); }
+.pw-input:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.pw-select-wrap { position: relative; }
+.pw-select-wrap::after {
+  content: '▼';
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 9px;
+  pointer-events: none;
+}
+
+.pw-textarea {
+  width: 100%;
+  padding: 14px;
+  background: var(--surface2);
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  line-height: 1.65;
+  letter-spacing: 0.01em;
+  resize: vertical;
+  outline: none;
+}
+.pw-textarea:focus { border-color: var(--muted-soft); }
+
+/* Tab nav */
+.pw-tab {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 10px 0 14px;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 15.5px;
+  font-weight: 400;
+  cursor: pointer;
+  letter-spacing: -0.005em;
+}
+.pw-tab[data-active="true"] {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+  font-weight: 500;
+}
+
+/* Accent pill (semantic) */
+.pw-pill-sky {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--sky-bg);
+  color: var(--sky-fg);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.pw-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.pw-dot-warn { background: var(--blush-solid-bg); }
+.pw-dot-ok   { background: var(--sage-solid-bg); }
+.pw-dot-info { background: var(--sky-solid-bg); }
+
+/* Design tab two-col layout collapses on narrow widths */
+.design-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--gap-col);
+}
+@media (max-width: 860px) {
+  .design-grid { grid-template-columns: 1fr; }
+}

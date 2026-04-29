@@ -75,6 +75,8 @@ R_Kan\tGTCCTGGGTTTCAAGCATTAGTCCA`);
 		return { min: Math.min(...tms), max: Math.max(...tms) };
 	});
 
+	let tmSpread = $derived(analyzeResults ? analyzeResults.tm_spread : 0);
+
 	function conditions() {
 		return {
 			na_mm: Number(naConc),
@@ -172,10 +174,12 @@ R_Kan\tGTCCTGGGTTTCAAGCATTAGTCCA`);
 		);
 	}
 
-	function severityBg(value, floor = -12) {
+	// Cross-dimer heatmap: more negative ΔG → stronger blush wash.
+	function heatBg(value, floor = -6, ceiling = -1) {
 		if (value === null || value === undefined) return '';
-		const s = Math.abs(Math.max(floor, Math.min(0, value)) / floor);
-		return `background: rgba(0,0,0,${(s * 0.12).toFixed(3)})`;
+		const t = Math.max(0, Math.min(1, (value - floor) / (ceiling - floor)));
+		const opacity = ((1 - t) * 0.85 * 0.55).toFixed(3);
+		return `background: rgba(198, 110, 110, ${opacity})`;
 	}
 
 	function downloadCsv(filename, csv) {
@@ -195,296 +199,344 @@ R_Kan\tGTCCTGGGTTTCAAGCATTAGTCCA`);
 		].join('\n');
 		await navigator.clipboard?.writeText(text);
 	}
-
-	function tabClass(name) {
-		return active === name
-			? 'border-gray-900 text-gray-900'
-			: 'border-transparent text-gray-400 hover:text-gray-900';
-	}
 </script>
 
-<svelte:head><title>PrimerDesigner</title></svelte:head>
+<svelte:head><title>Primer Workbench</title></svelte:head>
 
-<section class="mb-6">
-	<div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-		<div>
-			<p class="text-[11px] uppercase tracking-[0.16em] text-gray-400">Primer workbench</p>
-			<h1 class="mt-1 text-2xl font-semibold tracking-tight text-gray-900">Design, analyze, and explain primer sets.</h1>
-		</div>
-		<button
-			class="self-start border border-gray-200 px-3 py-1.5 text-[12px] text-gray-500 transition-colors hover:border-gray-400 hover:text-gray-900"
-			onclick={() => showConditions = !showConditions}
-		>
-			{showConditions ? 'Hide' : 'Show'} conditions
-		</button>
-	</div>
+<!-- Tabs -->
+<div class="flex" style="gap: 28px; border-bottom: 1px solid var(--line); margin-bottom: var(--gap-section);">
+	<button class="pw-tab" data-active={active === 'design'} onclick={() => active = 'design'}>Design</button>
+	<button class="pw-tab" data-active={active === 'analyze'} onclick={() => active = 'analyze'}>Analyze</button>
+	<button class="pw-tab" data-active={active === 'golden'} onclick={() => active = 'golden'}>Golden Gate</button>
+</div>
 
-	{#if showConditions}
-		<div class="mt-4 grid gap-3 border border-gray-200 bg-gray-50 p-3 text-[12px] text-gray-600 sm:grid-cols-4">
-			<label>
-				<span class="block text-[10px] uppercase tracking-wider text-gray-400">Na+ mM</span>
-				<input class="mt-1 w-full border border-gray-200 bg-white px-2 py-1 font-mono" type="number" min="0" max="1000" step="10" bind:value={naConc} />
-			</label>
-			<label>
-				<span class="block text-[10px] uppercase tracking-wider text-gray-400">Mg2+ mM</span>
-				<input class="mt-1 w-full border border-gray-200 bg-white px-2 py-1 font-mono" type="number" min="0" max="100" step="0.5" bind:value={mgConc} />
-			</label>
-			<label>
-				<span class="block text-[10px] uppercase tracking-wider text-gray-400">dNTP mM</span>
-				<input class="mt-1 w-full border border-gray-200 bg-white px-2 py-1 font-mono" type="number" min="0" max="20" step="0.1" bind:value={dntpConc} />
-			</label>
-			<label>
-				<span class="block text-[10px] uppercase tracking-wider text-gray-400">Primer nM</span>
-				<input class="mt-1 w-full border border-gray-200 bg-white px-2 py-1 font-mono" type="number" min="1" max="10000" step="50" bind:value={dnaConc} />
-			</label>
-		</div>
-	{/if}
-</section>
-
-<nav class="mb-6 flex border-b border-gray-200 text-sm font-medium">
-	<button class={`border-b-2 px-4 py-2 transition-colors ${tabClass('design')}`} onclick={() => active = 'design'}>Design</button>
-	<button class={`border-b-2 px-4 py-2 transition-colors ${tabClass('analyze')}`} onclick={() => active = 'analyze'}>Analyze</button>
-	<button class={`border-b-2 px-4 py-2 transition-colors ${tabClass('golden')}`} onclick={() => active = 'golden'}>Golden Gate</button>
-</nav>
-
+<!-- ─────────── DESIGN ─────────── -->
 {#if active === 'design'}
-	<section class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-		<div>
-			<div class="mb-2 flex items-center justify-between">
-				<h2 class="text-sm font-semibold text-gray-900">Template sequence</h2>
-				<span class="font-mono text-[11px] text-gray-400">{templateLength} bp</span>
+	<div class="design-grid items-start">
+		<!-- Template editor -->
+		<div class="pw-card">
+			<div class="flex items-center justify-between" style="margin-bottom: 12px;">
+				<span class="pw-section-label">Template</span>
+				<span class="pw-num" style="font-size: 12px; color: var(--muted);">{templateLength} bp</span>
 			</div>
 			<textarea
-				class="h-60 w-full resize-y border border-gray-200 bg-gray-50 p-4 font-mono text-[12px] leading-6 focus:border-gray-400 focus:outline-none"
+				class="pw-textarea"
+				style="min-height: 280px;"
 				bind:value={templateInput}
 				spellcheck="false"
 			></textarea>
 		</div>
 
-		<aside class="border border-gray-200 bg-white p-4">
-			<h2 class="text-sm font-semibold text-gray-900">Design constraints</h2>
-			<div class="mt-4 grid grid-cols-2 gap-3 text-[12px]">
-				<label class="col-span-2">
-					<span class="block text-[10px] uppercase tracking-wider text-gray-400">Design goal</span>
-					<select class="mt-1 w-full border border-gray-200 bg-white px-2 py-2" bind:value={designGoal}>
+		<!-- Constraints -->
+		<div class="pw-card">
+			<div style="margin-bottom: 14px;">
+				<span class="pw-section-label">Constraints</span>
+			</div>
+
+			<div style="margin-bottom: 14px;">
+				<div class="pw-field-label" style="margin-bottom: 6px;">Design goal</div>
+				<div class="pw-select-wrap">
+					<select class="pw-select" bind:value={designGoal} style="padding-right: 28px;">
 						<option value="exact">Exact submitted bounds</option>
 						<option value="targeted">Required region</option>
 						<option value="amplicon">Exploratory internal amplicon</option>
 					</select>
-				</label>
-				<label>
-					<span class="block text-[10px] uppercase tracking-wider text-gray-400">Min product</span>
-					<input class="mt-1 w-full border border-gray-200 px-2 py-1.5 font-mono disabled:bg-gray-50 disabled:text-gray-300" type="number" min="40" max="5000" bind:value={productMin} disabled={designGoal === 'exact'} />
-				</label>
-				<label>
-					<span class="block text-[10px] uppercase tracking-wider text-gray-400">Max product</span>
-					<input class="mt-1 w-full border border-gray-200 px-2 py-1.5 font-mono disabled:bg-gray-50 disabled:text-gray-300" type="number" min="40" max="5000" bind:value={productMax} disabled={designGoal === 'exact'} />
-				</label>
-				<label>
-					<span class="block text-[10px] uppercase tracking-wider text-gray-400">Candidates</span>
-					<input
-						class="mt-1 w-full border border-gray-200 px-2 py-1.5 font-mono disabled:bg-gray-50 disabled:text-gray-300"
-						type="number"
-						min="1"
-						max="20"
-						value={designGoal === 'exact' ? 1 : primerCount}
-						disabled={designGoal === 'exact'}
-						oninput={(event) => primerCount = event.currentTarget.value}
-					/>
-				</label>
-				<div></div>
-				<label>
-					<span class="block text-[10px] uppercase tracking-wider text-gray-400">{designGoal === 'targeted' ? 'Required start' : 'Target start'}</span>
-					<input class="mt-1 w-full border border-gray-200 px-2 py-1.5 font-mono disabled:bg-gray-50 disabled:text-gray-300" type="number" min="0" placeholder={designGoal === 'targeted' ? 'required' : 'optional'} bind:value={targetStart} disabled={designGoal === 'exact'} />
-				</label>
-				<label>
-					<span class="block text-[10px] uppercase tracking-wider text-gray-400">{designGoal === 'targeted' ? 'Required length' : 'Target length'}</span>
-					<input class="mt-1 w-full border border-gray-200 px-2 py-1.5 font-mono disabled:bg-gray-50 disabled:text-gray-300" type="number" min="1" placeholder={designGoal === 'targeted' ? 'required' : 'optional'} bind:value={targetLength} disabled={designGoal === 'exact'} />
-				</label>
+				</div>
 			</div>
-			<button
-				class="mt-4 w-full bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-black disabled:cursor-not-allowed disabled:opacity-30"
+
+			<div class="grid" style="grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+				<div>
+					<div class="pw-field-label" style="margin-bottom: 6px;">Min product</div>
+					<input class="pw-input" type="number" min="40" max="5000" bind:value={productMin} disabled={designGoal === 'exact'} />
+				</div>
+				<div>
+					<div class="pw-field-label" style="margin-bottom: 6px;">Max product</div>
+					<input class="pw-input" type="number" min="40" max="5000" bind:value={productMax} disabled={designGoal === 'exact'} />
+				</div>
+			</div>
+
+			<div style="margin-bottom: 14px;">
+				<div class="pw-field-label" style="margin-bottom: 6px;">Candidates</div>
+				<input class="pw-input" type="number" min="1" max="20"
+					value={designGoal === 'exact' ? 1 : primerCount}
+					disabled={designGoal === 'exact'}
+					oninput={(e) => primerCount = e.currentTarget.value} />
+			</div>
+
+			{#if designGoal !== 'exact'}
+				<div class="grid" style="grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px;">
+					<div>
+						<div class="pw-field-label" style="margin-bottom: 6px;">{designGoal === 'targeted' ? 'Req. start' : 'Target start'}</div>
+						<input class="pw-input" type="number" min="0" bind:value={targetStart} />
+					</div>
+					<div>
+						<div class="pw-field-label" style="margin-bottom: 6px;">{designGoal === 'targeted' ? 'Req. length' : 'Target length'}</div>
+						<input class="pw-input" type="number" min="1" bind:value={targetLength} />
+					</div>
+				</div>
+			{/if}
+
+			<button class="pw-btn-primary" style="width: 100%; margin-top: 4px;"
 				disabled={designLoading || templateLength < 40}
-				onclick={runDesign}
-			>
-				{designLoading ? 'Designing...' : 'Design primers'}
+				onclick={runDesign}>
+				{designLoading ? 'Designing…' : 'Design primers'}
 			</button>
-			{#if designError}<p class="mt-3 text-[12px] text-red-600">{designError}</p>{/if}
-		</aside>
-	</section>
+			{#if designError}
+				<p style="margin-top: 12px; font-size: 12px; color: var(--blush-fg);">{designError}</p>
+			{/if}
+		</div>
+	</div>
 
 	{#if designResults}
-		<section class="mt-6">
-			<div class="mb-3 flex items-center justify-between">
-				<div>
-					<h2 class="text-sm font-semibold text-gray-900">Primer candidates</h2>
-					<p class="text-[12px] text-gray-400">{designResults.candidates.length} returned for {designResults.template_length} bp template</p>
+		<div style="margin-top: var(--gap-section);">
+			<div class="pw-card pw-card-flush">
+				<div class="flex items-center justify-between" style="padding: var(--pad-card) var(--pad-card) 12px;">
+					<span class="pw-section-label">Candidates</span>
+					<button class="pw-btn-ghost"
+						onclick={() => downloadCsv('primerdesign-candidates.csv', exportDesignCSV(designResults))}>
+						Export CSV
+					</button>
 				</div>
-				<button class="border border-gray-200 px-3 py-1.5 text-[12px] text-gray-500 hover:border-gray-400 hover:text-gray-900"
-					onclick={() => downloadCsv('primerdesign-candidates.csv', exportDesignCSV(designResults))}>
-					Export CSV
-				</button>
-			</div>
 
-			{#if designResults.warnings.length || designResults.candidates.length === 0}
-				<div class="mb-4 border border-gray-200 bg-gray-50 p-4">
-					{#if designResults.warnings.length}
-						{#each designResults.warnings as warning}
-							<p class="text-[12px] text-gray-600">{warning}</p>
-						{/each}
-					{/if}
-					{#if designResults.candidates.length === 0 && Object.keys(designResults.primer3_explain).length}
-						<div class="mt-3 grid gap-2 text-[11px] text-gray-500 md:grid-cols-2">
-							{#each Object.entries(designResults.primer3_explain) as [key, value]}
-								<p><span class="font-mono text-gray-400">{key}</span>: {value}</p>
+				{#if designResults.warnings.length || designResults.candidates.length === 0}
+					<div style="margin: 0 var(--pad-card) 12px; padding: 12px 14px; background: var(--surface2); border: 1px solid var(--line-soft); border-radius: 10px;">
+						{#if designResults.warnings.length}
+							{#each designResults.warnings as warning}
+								<p style="font-size: 12.5px; color: var(--ink-soft); margin: 2px 0;">{warning}</p>
 							{/each}
-						</div>
-					{/if}
-				</div>
-			{/if}
+						{/if}
+						{#if designResults.candidates.length === 0 && Object.keys(designResults.primer3_explain).length}
+							<div class="grid" style="margin-top: 10px; gap: 6px; font-size: 11.5px; color: var(--muted); grid-template-columns: 1fr 1fr;">
+								{#each Object.entries(designResults.primer3_explain) as [key, value]}
+									<p><span class="pw-num" style="color: var(--muted-soft);">{key}</span>: {value}</p>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				{/if}
 
-			{#if designResults.candidates.length}
-			<div class="overflow-x-auto border border-gray-200">
-				<table class="w-full border-collapse text-[13px]">
-					<thead class="bg-gray-50 text-[10px] uppercase tracking-wider text-gray-400">
-						<tr>
-							<th class="px-3 py-2 text-left">Rank</th>
-							<th class="px-3 py-2 text-left">Forward</th>
-							<th class="px-3 py-2 text-left">Reverse</th>
-							<th class="px-3 py-2 text-right">Product</th>
-							<th class="px-3 py-2 text-right">Tm diff</th>
-							<th class="px-3 py-2 text-right">Dimer</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each designResults.candidates as c}
-							<tr class="cursor-pointer border-t border-gray-100 hover:bg-gray-50" onclick={() => expandedCandidate = expandedCandidate === c.rank ? null : c.rank}>
-								<td class="px-3 py-2 font-mono">{c.rank}</td>
-								<td class="px-3 py-2 font-mono text-[12px]">{c.forward.sequence}</td>
-								<td class="px-3 py-2 font-mono text-[12px]">{c.reverse.sequence}</td>
-								<td class="px-3 py-2 text-right font-mono">{c.product_size}</td>
-								<td class="px-3 py-2 text-right font-mono">{c.tm_difference.toFixed(1)}</td>
-								<td class="px-3 py-2 text-right font-mono" style={severityBg(c.heterodimer.dg)}>{c.heterodimer.dg.toFixed(2)}</td>
+				{#if designResults.candidates.length}
+					<table style="width: 100%; border-collapse: collapse;">
+						<thead>
+							<tr>
+								{#each ['Rank', 'Forward', 'Reverse', 'Product', 'Tm Δ', 'Dimer'] as h, i}
+									<th style="padding: 14px 16px; text-align: {i >= 3 ? 'right' : 'left'}; border-bottom: 1px solid var(--line);"
+										class="pw-eyebrow">{h}</th>
+								{/each}
 							</tr>
-							{#if expandedCandidate === c.rank}
-								<tr>
-									<td colspan="6" class="border-t border-gray-100 bg-gray-50 px-4 py-4">
-										<div class="grid gap-4 md:grid-cols-3">
-											<div>
-												<p class="text-[10px] uppercase tracking-wider text-gray-400">Forward coordinates</p>
-												<p class="mt-1 font-mono text-[12px]">{c.forward_coords.start}-{c.forward_coords.end} ({c.forward_coords.strand})</p>
-												<p class="mt-2 text-[12px] text-gray-500">Tm {c.forward.tm} C, GC {(c.forward.gc_content * 100).toFixed(0)}%</p>
-											</div>
-											<div>
-												<p class="text-[10px] uppercase tracking-wider text-gray-400">Reverse coordinates</p>
-												<p class="mt-1 font-mono text-[12px]">{c.reverse_coords.start}-{c.reverse_coords.end} ({c.reverse_coords.strand})</p>
-												<p class="mt-2 text-[12px] text-gray-500">Tm {c.reverse.tm} C, GC {(c.reverse.gc_content * 100).toFixed(0)}%</p>
-											</div>
-											<div>
-												<p class="text-[10px] uppercase tracking-wider text-gray-400">Actions</p>
-												<button class="mt-1 border border-gray-200 px-3 py-1.5 text-[12px] hover:border-gray-400" onclick={() => copyPrimerPair(c)}>Copy pair</button>
-											</div>
-										</div>
-										{#if c.warnings.length}
-											<div class="mt-4">
-												<p class="text-[10px] uppercase tracking-wider text-gray-400">Warnings</p>
-												{#each c.warnings as warning}
-													<p class="mt-1 text-[12px] text-gray-600">{warning}</p>
-												{/each}
-											</div>
-										{/if}
-									</td>
+						</thead>
+						<tbody>
+							{#each designResults.candidates as c, i}
+								<tr style="background: {i % 2 === 1 ? 'var(--row-alt)' : 'transparent'}; cursor: pointer; border-bottom: 1px solid var(--line-soft);"
+									onclick={() => expandedCandidate = expandedCandidate === c.rank ? null : c.rank}>
+									<td class="pw-num" style="padding: 13px 16px; font-size: 13.5px; color: var(--ink);">{c.rank}</td>
+									<td class="pw-num" style="padding: 13px 16px; font-size: 13px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 0;">{c.forward.sequence}</td>
+									<td class="pw-num" style="padding: 13px 16px; font-size: 13px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 0;">{c.reverse.sequence}</td>
+									<td class="pw-num" style="padding: 13px 16px; font-size: 13.5px; text-align: right; color: var(--ink);">{c.product_size}</td>
+									<td class="pw-num" style="padding: 13px 16px; font-size: 13.5px; text-align: right; color: var(--ink);">{c.tm_difference.toFixed(1)}</td>
+									<td class="pw-num" style="padding: 13px 16px; font-size: 13.5px; text-align: right; color: var(--ink); {heatBg(c.heterodimer.dg)}">{c.heterodimer.dg.toFixed(2)}</td>
 								</tr>
-							{/if}
-						{/each}
-					</tbody>
-				</table>
+								{#if expandedCandidate === c.rank}
+									<tr>
+										<td colspan="6" style="padding: 16px 20px; background: var(--surface2); border-bottom: 1px solid var(--line-soft);">
+											<div class="grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 18px;">
+												<div>
+													<div class="pw-field-label" style="margin-bottom: 6px;">Forward</div>
+													<p class="pw-num" style="font-size: 12.5px; color: var(--ink);">{c.forward_coords.start}-{c.forward_coords.end} ({c.forward_coords.strand})</p>
+													<p style="font-size: 12px; color: var(--muted); margin-top: 4px;">Tm {c.forward.tm} °C · GC {(c.forward.gc_content * 100).toFixed(0)}%</p>
+												</div>
+												<div>
+													<div class="pw-field-label" style="margin-bottom: 6px;">Reverse</div>
+													<p class="pw-num" style="font-size: 12.5px; color: var(--ink);">{c.reverse_coords.start}-{c.reverse_coords.end} ({c.reverse_coords.strand})</p>
+													<p style="font-size: 12px; color: var(--muted); margin-top: 4px;">Tm {c.reverse.tm} °C · GC {(c.reverse.gc_content * 100).toFixed(0)}%</p>
+												</div>
+												<div>
+													<div class="pw-field-label" style="margin-bottom: 6px;">Actions</div>
+													<button class="pw-btn-ghost" onclick={(e) => { e.stopPropagation(); copyPrimerPair(c); }}>Copy pair</button>
+												</div>
+											</div>
+											{#if c.warnings.length}
+												<div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line-soft);">
+													{#each c.warnings as warning}
+														<p style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-soft); margin: 2px 0;">
+															<span class="pw-dot pw-dot-warn"></span>{warning}
+														</p>
+													{/each}
+												</div>
+											{/if}
+										</td>
+									</tr>
+								{/if}
+							{/each}
+						</tbody>
+					</table>
+				{/if}
 			</div>
-			{/if}
-		</section>
+		</div>
 	{/if}
 {/if}
 
+<!-- ─────────── ANALYZE ─────────── -->
 {#if active === 'analyze'}
-	<section>
-		<div class="mb-2 flex items-center justify-between">
-			<h2 class="text-sm font-semibold text-gray-900">Primer set</h2>
-			<span class="font-mono text-[11px] text-gray-400">{analyzePrimerCount} detected</span>
-		</div>
-		<textarea
-			class="h-44 w-full resize-y border border-gray-200 bg-gray-50 p-4 font-mono text-[12px] leading-6 focus:border-gray-400 focus:outline-none"
-			bind:value={analyzeInput}
-			spellcheck="false"
-			placeholder={"F_primer\tATGCGATCG...\nR_primer\tCGATCGATC..."}
-		></textarea>
-		<div class="mt-3 flex items-center gap-3">
-			<button class="bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-black disabled:cursor-not-allowed disabled:opacity-30"
-				disabled={analyzeLoading || analyzePrimerCount === 0}
-				onclick={runAnalyze}>
-				{analyzeLoading ? 'Analyzing...' : 'Analyze set'}
-			</button>
-			{#if analyzeResults}
-				<button class="border border-gray-200 px-3 py-2 text-[12px] text-gray-500 hover:border-gray-400 hover:text-gray-900"
-					onclick={() => downloadCsv('primerdesign-analysis.csv', exportCSV(analyzeResults))}>
-					Export CSV
+	<div style="display: flex; flex-direction: column; gap: var(--gap-section);">
+		<!-- Primer set editor -->
+		<div class="pw-card">
+			<div style="margin-bottom: 12px;">
+				<span class="pw-section-label">Primer set</span>
+			</div>
+			<textarea
+				class="pw-textarea"
+				style="min-height: 160px; line-height: 1.85;"
+				bind:value={analyzeInput}
+				spellcheck="false"
+				placeholder={"F_primer\tATGCGATCG…\nR_primer\tCGATCGATC…"}
+			></textarea>
+
+			<div class="flex items-center" style="gap: 10px; margin-top: 14px;">
+				<button class="pw-btn-primary"
+					disabled={analyzeLoading || analyzePrimerCount === 0}
+					onclick={runAnalyze}>
+					{analyzeLoading ? 'Analyzing…' : 'Analyze set'}
 				</button>
+				{#if analyzeResults}
+					<button class="pw-btn-ghost"
+						onclick={() => downloadCsv('primerdesign-analysis.csv', exportCSV(analyzeResults))}>
+						Export CSV
+					</button>
+				{/if}
+				<button class="pw-btn-quiet" style="margin-left: auto;"
+					onclick={() => showConditions = !showConditions}>
+					{showConditions ? 'Hide conditions' : 'Conditions'}
+				</button>
+			</div>
+
+			{#if showConditions}
+				<div class="flex flex-wrap" style="gap: 18px; padding: 12px 14px; border-radius: 10px; background: var(--surface2); border: 1px solid var(--line-soft); margin-top: 14px; font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); letter-spacing: 0.02em;">
+					<label class="flex items-center" style="gap: 6px;">
+						<span style="color: var(--ink);">Na+</span>
+						<input class="pw-input" type="number" min="0" max="1000" step="10" bind:value={naConc}
+							style="width: 70px; height: 26px; padding: 0 6px; font-size: 12px;" />
+						<span>mM</span>
+					</label>
+					<label class="flex items-center" style="gap: 6px;">
+						<span style="color: var(--ink);">Mg2+</span>
+						<input class="pw-input" type="number" min="0" max="100" step="0.5" bind:value={mgConc}
+							style="width: 70px; height: 26px; padding: 0 6px; font-size: 12px;" />
+						<span>mM</span>
+					</label>
+					<label class="flex items-center" style="gap: 6px;">
+						<span style="color: var(--ink);">dNTP</span>
+						<input class="pw-input" type="number" min="0" max="20" step="0.1" bind:value={dntpConc}
+							style="width: 70px; height: 26px; padding: 0 6px; font-size: 12px;" />
+						<span>mM</span>
+					</label>
+					<label class="flex items-center" style="gap: 6px;">
+						<span style="color: var(--ink);">Primer</span>
+						<input class="pw-input" type="number" min="1" max="10000" step="50" bind:value={dnaConc}
+							style="width: 80px; height: 26px; padding: 0 6px; font-size: 12px;" />
+						<span>nM</span>
+					</label>
+				</div>
+			{/if}
+			{#if analyzeError}
+				<p style="margin-top: 12px; font-size: 12px; color: var(--blush-fg);">{analyzeError}</p>
 			{/if}
 		</div>
-		{#if analyzeError}<p class="mt-3 text-[12px] text-red-600">{analyzeError}</p>{/if}
-	</section>
 
-	{#if analyzeResults}
-		<section class="mt-6">
-			<div class="mb-4 grid grid-cols-3 gap-px border border-gray-200 bg-gray-200">
-				<div class="bg-white px-4 py-3">
-					<p class="text-[10px] uppercase tracking-wider text-gray-400">Warnings</p>
-					<p class="mt-1 font-mono text-lg">{warningCount}<span class="text-sm text-gray-400">/{primerNames.length}</span></p>
+		{#if analyzeResults}
+			<!-- Metric cards -->
+			<div class="grid" style="grid-template-columns: repeat(3, 1fr); gap: var(--gap-col);">
+				<div class="pw-card">
+					<div class="flex items-center justify-between" style="margin-bottom: 12px;">
+						<span class="pw-eyebrow">Warnings</span>
+						<span class="pw-dot {warningCount > 0 ? 'pw-dot-warn' : 'pw-dot-ok'}"></span>
+					</div>
+					<div class="flex items-baseline" style="gap: 4px;">
+						<span class="pw-num" style="font-size: 29px; color: var(--ink); letter-spacing: -0.01em;">{warningCount}</span>
+						<span class="pw-num" style="font-size: 15px; color: var(--muted);">/{primerNames.length}</span>
+					</div>
 				</div>
-				<div class="bg-white px-4 py-3">
-					<p class="text-[10px] uppercase tracking-wider text-gray-400">Tm spread</p>
-					<p class="mt-1 font-mono text-lg">{analyzeResults.tm_spread.toFixed(1)} C</p>
+				<div class="pw-card">
+					<div class="flex items-center justify-between" style="margin-bottom: 12px;">
+						<span class="pw-eyebrow">Tm spread</span>
+						<span class="pw-dot {tmSpread > 3 ? 'pw-dot-warn' : 'pw-dot-ok'}"></span>
+					</div>
+					<div class="flex items-baseline" style="gap: 4px;">
+						<span class="pw-num" style="font-size: 29px; color: var(--ink); letter-spacing: -0.01em;">{tmSpread.toFixed(1)}</span>
+						<span class="pw-num" style="font-size: 15px; color: var(--muted);">°C</span>
+					</div>
 				</div>
-				<div class="bg-white px-4 py-3">
-					<p class="text-[10px] uppercase tracking-wider text-gray-400">Range</p>
-					<p class="mt-1 font-mono text-lg">{tmRange ? `${tmRange.min.toFixed(1)}-${tmRange.max.toFixed(1)} C` : '-'}</p>
+				<div class="pw-card">
+					<div style="margin-bottom: 12px;">
+						<span class="pw-eyebrow">Range</span>
+					</div>
+					<div class="flex items-baseline" style="gap: 4px;">
+						<span class="pw-num" style="font-size: 22px; color: var(--ink); letter-spacing: -0.01em;">
+							{tmRange ? `${tmRange.min.toFixed(1)}–${tmRange.max.toFixed(1)}` : '–'}
+						</span>
+						<span class="pw-num" style="font-size: 15px; color: var(--muted);">°C</span>
+					</div>
 				</div>
 			</div>
 
-			<div class="overflow-x-auto border border-gray-200">
-				<table class="w-full border-collapse text-[13px]">
-					<thead class="bg-gray-50 text-[10px] uppercase tracking-wider text-gray-400">
+			<!-- Primer table -->
+			<div class="pw-card pw-card-flush">
+				<table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+					<colgroup>
+						<col style="width: 14%;" />
+						<col style="width: 35%;" />
+						<col style="width: 11%;" />
+						<col style="width: 11%;" />
+						<col style="width: 13%;" />
+						<col style="width: 16%;" />
+					</colgroup>
+					<thead>
 						<tr>
-							<th class="px-3 py-2 text-left">Name</th>
-							<th class="px-3 py-2 text-left">Sequence</th>
-							<th class="px-3 py-2 text-right">Tm</th>
-							<th class="px-3 py-2 text-right">GC</th>
-							<th class="px-3 py-2 text-right">Hairpin</th>
-							<th class="px-3 py-2 text-right">Self-dimer</th>
+							{#each [['Name', 'left'], ['Sequence', 'left'], ['Tm', 'right'], ['GC', 'right'], ['Hairpin', 'right'], ['Self-dimer', 'right']] as [h, align]}
+								<th class="pw-eyebrow" style="padding: 14px 16px; text-align: {align}; border-bottom: 1px solid var(--line);">{h}</th>
+							{/each}
 						</tr>
 					</thead>
 					<tbody>
-						{#each Object.entries(analyzeResults.primers) as [name, p]}
+						{#each Object.entries(analyzeResults.primers) as [name, p], i}
 							{@const isExpanded = expandedPrimer === name}
-							<tr class="cursor-pointer border-t border-gray-100 hover:bg-gray-50" onclick={() => expandedPrimer = isExpanded ? null : name}>
-								<td class="px-3 py-2 font-medium">{p.warnings.length ? '!' : ''} {name}</td>
-								<td class="max-w-[420px] truncate px-3 py-2 font-mono text-[12px]" title={p.sequence}>{p.sequence}</td>
-								<td class="px-3 py-2 text-right font-mono">{p.tm}</td>
-								<td class="px-3 py-2 text-right font-mono">{(p.gc_content * 100).toFixed(0)}%</td>
-								<td class="px-3 py-2 text-right font-mono" style={severityBg(p.hairpin.dg_santalucia, -6)}>{p.hairpin.dg_santalucia}</td>
-								<td class="px-3 py-2 text-right font-mono" style={severityBg(p.homodimer.dg)}>{p.homodimer.dg}</td>
+							<tr style="background: {i % 2 === 1 ? 'var(--row-alt)' : 'transparent'}; cursor: pointer; border-bottom: 1px solid var(--line-soft);"
+								onclick={() => expandedPrimer = isExpanded ? null : name}>
+								<td style="padding: 13px 16px; font-size: 13.5px; color: var(--ink); white-space: nowrap;">
+									<span class="inline-flex items-center" style="gap: 8px;">
+										{#if p.warnings.length}<span class="pw-dot pw-dot-warn"></span>{/if}
+										<span class="pw-num">{name}</span>
+									</span>
+								</td>
+								<td class="pw-num" style="padding: 13px 16px; font-size: 13px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{p.sequence}</td>
+								<td class="pw-num" style="padding: 13px 16px; font-size: 13.5px; text-align: right; color: var(--ink);">{p.tm.toFixed(1)}</td>
+								<td class="pw-num" style="padding: 13px 16px; font-size: 13.5px; text-align: right; color: var(--ink);">{(p.gc_content * 100).toFixed(0)}%</td>
+								<td class="pw-num" style="padding: 13px 16px; font-size: 13.5px; text-align: right; color: var(--ink); {heatBg(p.hairpin.dg_santalucia, -6, -1)}">{p.hairpin.dg_santalucia}</td>
+								<td class="pw-num" style="padding: 13px 16px; font-size: 13.5px; text-align: right; color: var(--ink); {heatBg(p.homodimer.dg)}">{p.homodimer.dg}</td>
 							</tr>
 							{#if isExpanded}
 								<tr>
-									<td colspan="6" class="border-t border-gray-100 bg-gray-50 px-4 py-3">
-										<div class="grid gap-4 text-[12px] md:grid-cols-3">
-											<p><span class="text-gray-400">Mathews hairpin</span> <span class="font-mono">{p.hairpin.dg_mathews}</span></p>
-											<p><span class="text-gray-400">Dot bracket</span> <span class="font-mono">{p.hairpin.dot_bracket || '-'}</span></p>
-											<p><span class="text-gray-400">Engines disagree</span> <span class="font-mono">{p.hairpin.engines_disagree ? 'yes' : 'no'}</span></p>
+									<td colspan="6" style="padding: 14px 20px; background: var(--surface2); border-bottom: 1px solid var(--line-soft);">
+										<div class="grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 18px; font-size: 12.5px;">
+											<div>
+												<span style="color: var(--muted);">Mathews hairpin</span>
+												<span class="pw-num" style="margin-left: 8px; color: var(--ink);">{p.hairpin.dg_mathews}</span>
+											</div>
+											<div>
+												<span style="color: var(--muted);">Dot bracket</span>
+												<span class="pw-num" style="margin-left: 8px; color: var(--ink);">{p.hairpin.dot_bracket || '—'}</span>
+											</div>
+											<div>
+												<span style="color: var(--muted);">Engines disagree</span>
+												<span class="pw-num" style="margin-left: 8px; color: var(--ink);">{p.hairpin.engines_disagree ? 'yes' : 'no'}</span>
+											</div>
 										</div>
 										{#if p.warnings.length}
-											<div class="mt-3">
+											<div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line-soft);">
 												{#each p.warnings as warning}
-													<p class="text-[12px] text-gray-600">{warning}</p>
+													<p style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-soft); margin: 2px 0;">
+														<span class="pw-dot pw-dot-warn"></span>{warning}
+													</p>
 												{/each}
 											</div>
 										{/if}
@@ -496,107 +548,156 @@ R_Kan\tGTCCTGGGTTTCAAGCATTAGTCCA`);
 				</table>
 			</div>
 
-			<div class="mt-6 overflow-x-auto">
-				<p class="mb-2 text-[10px] uppercase tracking-wider text-gray-400">Cross-dimer matrix, delta G kcal/mol</p>
-				<table class="w-full table-fixed border-collapse font-mono text-[12px]">
+			<!-- Cross-dimer matrix -->
+			<div class="pw-card pw-card-flush">
+				<div style="padding: var(--pad-card) var(--pad-card) 12px;">
+					<span class="pw-section-label">Cross-dimer matrix</span>
+				</div>
+				<div style="overflow-x: auto;">
+					<table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+						<thead>
+							<tr>
+								<th class="pw-eyebrow" style="width: 96px; padding: 12px;"></th>
+								{#each primerNames as name}
+									<th class="pw-eyebrow" style="padding: 12px; text-align: center;">{name}</th>
+								{/each}
+							</tr>
+						</thead>
+						<tbody>
+							{#each primerNames as row, i}
+								<tr>
+									<td class="pw-eyebrow" style="padding: 12px; text-align: right; border-right: 1px solid var(--line-soft); border-top: 1px solid var(--line-soft);">{row}</td>
+									{#each primerNames as col, j}
+										{#if i === j}
+											{@const selfDg = analyzeResults.primers[row].homodimer.dg}
+											<td class="pw-num"
+												style="padding: 0; text-align: center; font-size: 13.5px; border-top: 1px solid var(--line-soft); {j < primerNames.length - 1 ? 'border-right: 1px solid var(--line-soft);' : ''} {heatBg(selfDg)}">
+												<div style="padding: 13px 6px; font-style: italic; color: var(--muted);">{selfDg}</div>
+											</td>
+										{:else}
+											{@const cd = getCrossDimer(row, col)}
+											<td class="pw-num"
+												style="padding: 0; text-align: center; font-size: 13.5px; border-top: 1px solid var(--line-soft); {j < primerNames.length - 1 ? 'border-right: 1px solid var(--line-soft);' : ''} {cd ? heatBg(cd.dg) : ''}">
+												<div style="padding: 13px 6px; color: var(--ink);">{cd ? cd.dg.toFixed(2) : ''}</div>
+											</td>
+										{/if}
+									{/each}
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		{/if}
+	</div>
+{/if}
+
+<!-- ─────────── GOLDEN GATE ─────────── -->
+{#if active === 'golden'}
+	<div style="display: flex; flex-direction: column; gap: var(--gap-section);">
+		<div class="pw-card">
+			<div class="grid" style="grid-template-columns: 1fr 1fr 1fr; gap: var(--gap-col);">
+				<div>
+					<div class="pw-field-label" style="margin-bottom: 6px;">Type-IIS enzyme</div>
+					<div class="pw-select-wrap">
+						<select class="pw-select" bind:value={enzyme} style="padding-right: 28px;">
+							<option>BsaI</option>
+							<option>BsmBI</option>
+							<option>BbsI</option>
+							<option>SapI</option>
+							<option>BpiI</option>
+						</select>
+					</div>
+				</div>
+				<div>
+					<div class="pw-field-label" style="margin-bottom: 6px;">Overhang length</div>
+					<div class="pw-select-wrap">
+						<select class="pw-select" disabled style="padding-right: 28px;">
+							<option>4 nt</option>
+						</select>
+					</div>
+				</div>
+				<div>
+					<div class="pw-field-label" style="margin-bottom: 6px;">Strategy</div>
+					<div class="pw-select-wrap">
+						<select class="pw-select" disabled style="padding-right: 28px;">
+							<option>One-pot</option>
+						</select>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="pw-card">
+			<div style="margin-bottom: 12px;">
+				<span class="pw-section-label">Overhangs</span>
+			</div>
+			<textarea class="pw-textarea" style="min-height: 100px;" bind:value={overhangInput} spellcheck="false"></textarea>
+
+			<div style="margin-top: 14px; margin-bottom: 12px;">
+				<span class="pw-section-label">Sequences to scan</span>
+			</div>
+			<textarea class="pw-textarea" style="min-height: 100px;" bind:value={ggSequences}
+				placeholder={">insert\nGGTCTC…"} spellcheck="false"></textarea>
+
+			<div class="flex" style="gap: 10px; margin-top: 14px;">
+				<button class="pw-btn-primary"
+					disabled={ggLoading || parseOverhangs(overhangInput).length < 2}
+					onclick={runGoldenGate}>
+					{ggLoading ? 'Checking…' : 'Check overhangs'}
+				</button>
+			</div>
+			{#if ggError}
+				<p style="margin-top: 12px; font-size: 12px; color: var(--blush-fg);">{ggError}</p>
+			{/if}
+		</div>
+
+		{#if ggResults}
+			<div class="pw-card pw-card-flush">
+				<div style="padding: var(--pad-card) var(--pad-card) 12px;">
+					<span class="pw-section-label">Report</span>
+				</div>
+				<table style="width: 100%; border-collapse: collapse;">
 					<thead>
 						<tr>
-							<th class="w-24"></th>
-							{#each primerNames as name}
-								<th class="truncate pb-1 text-center text-[10px] font-normal uppercase tracking-wider text-gray-400">{name}</th>
+							{#each [['Overhang', 'left'], ['Reverse complement', 'left'], ['GC', 'right'], ['Fidelity set', 'left'], ['Warnings', 'left']] as [h, align]}
+								<th class="pw-eyebrow" style="padding: 14px 16px; text-align: {align}; border-bottom: 1px solid var(--line);">{h}</th>
 							{/each}
 						</tr>
 					</thead>
 					<tbody>
-						{#each primerNames as row, i}
-							<tr>
-								<td class="truncate pr-2 text-right text-[10px] uppercase tracking-wider text-gray-400">{row}</td>
-								{#each primerNames as col, j}
-									{#if i === j}
-										{@const selfDg = analyzeResults.primers[row].homodimer.dg}
-										<td class="border border-gray-200 py-1.5 text-center" style={severityBg(selfDg)}>{selfDg}</td>
+						{#each ggResults.overhangs as oh, i}
+							<tr style="background: {i % 2 === 1 ? 'var(--row-alt)' : 'transparent'}; border-bottom: 1px solid var(--line-soft);">
+								<td style="padding: 13px 16px;">
+									<span class="pw-pill-sky">{oh.overhang}</span>
+								</td>
+								<td class="pw-num" style="padding: 13px 16px; font-size: 13.5px; color: var(--ink-soft);">{oh.reverse_complement}</td>
+								<td class="pw-num" style="padding: 13px 16px; font-size: 13.5px; text-align: right; color: var(--ink);">{(oh.gc_content * 100).toFixed(0)}%</td>
+								<td style="padding: 13px 16px; font-size: 13.5px; color: var(--ink-soft);">{oh.is_in_fidelity_set ? 'NEB high-fidelity' : 'custom'}</td>
+								<td style="padding: 13px 16px; font-size: 12.5px; color: var(--ink-soft);">
+									{#if oh.warnings.length}
+										<span class="inline-flex items-center" style="gap: 6px;">
+											<span class="pw-dot pw-dot-warn"></span>{oh.warnings.join('; ')}
+										</span>
 									{:else}
-										{@const cd = getCrossDimer(row, col)}
-										<td class="border border-gray-200 py-1.5 text-center" style={cd ? severityBg(cd.dg) : ''}>{cd ? cd.dg.toFixed(1) : ''}</td>
+										<span style="color: var(--muted);">—</span>
 									{/if}
-								{/each}
+								</td>
 							</tr>
 						{/each}
 					</tbody>
 				</table>
-			</div>
-		</section>
-	{/if}
-{/if}
-
-{#if active === 'golden'}
-	<section class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-		<div>
-			<h2 class="mb-2 text-sm font-semibold text-gray-900">Overhangs</h2>
-			<textarea class="h-36 w-full resize-y border border-gray-200 bg-gray-50 p-4 font-mono text-[12px] leading-6 focus:border-gray-400 focus:outline-none"
-				bind:value={overhangInput}
-				spellcheck="false"></textarea>
-			<h2 class="mb-2 mt-4 text-sm font-semibold text-gray-900">Sequences to scan for internal sites</h2>
-			<textarea class="h-36 w-full resize-y border border-gray-200 bg-gray-50 p-4 font-mono text-[12px] leading-6 focus:border-gray-400 focus:outline-none"
-				bind:value={ggSequences}
-				placeholder={">insert\nGGTCTC..."}
-				spellcheck="false"></textarea>
-		</div>
-		<aside class="border border-gray-200 bg-white p-4">
-			<label class="block text-[12px]">
-				<span class="block text-[10px] uppercase tracking-wider text-gray-400">Type IIS enzyme</span>
-				<select class="mt-1 w-full border border-gray-200 bg-white px-2 py-2" bind:value={enzyme}>
-					<option>BsaI</option>
-					<option>BsmBI</option>
-					<option>BbsI</option>
-					<option>SapI</option>
-					<option>BpiI</option>
-				</select>
-			</label>
-			<button class="mt-4 w-full bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-black disabled:opacity-30"
-				disabled={ggLoading || parseOverhangs(overhangInput).length < 2}
-				onclick={runGoldenGate}>
-				{ggLoading ? 'Checking...' : 'Check overhangs'}
-			</button>
-			{#if ggError}<p class="mt-3 text-[12px] text-red-600">{ggError}</p>{/if}
-		</aside>
-	</section>
-
-	{#if ggResults}
-		<section class="mt-6">
-			<h2 class="mb-3 text-sm font-semibold text-gray-900">Golden Gate report</h2>
-			<div class="overflow-x-auto border border-gray-200">
-				<table class="w-full border-collapse text-[13px]">
-					<thead class="bg-gray-50 text-[10px] uppercase tracking-wider text-gray-400">
-						<tr>
-							<th class="px-3 py-2 text-left">Overhang</th>
-							<th class="px-3 py-2 text-left">Reverse complement</th>
-							<th class="px-3 py-2 text-right">GC</th>
-							<th class="px-3 py-2 text-left">Fidelity set</th>
-							<th class="px-3 py-2 text-left">Warnings</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each ggResults.overhangs as oh}
-							<tr class="border-t border-gray-100">
-								<td class="px-3 py-2 font-mono">{oh.overhang}</td>
-								<td class="px-3 py-2 font-mono">{oh.reverse_complement}</td>
-								<td class="px-3 py-2 text-right font-mono">{(oh.gc_content * 100).toFixed(0)}%</td>
-								<td class="px-3 py-2">{oh.is_in_fidelity_set ? 'NEB high fidelity' : 'custom'}</td>
-								<td class="px-3 py-2 text-gray-600">{oh.warnings.join('; ') || '-'}</td>
-							</tr>
+				{#if ggResults.warnings.length}
+					<div style="margin: 12px var(--pad-card) var(--pad-card); padding: 12px 14px; background: var(--surface2); border: 1px solid var(--line-soft); border-radius: 10px;">
+						<div class="pw-eyebrow" style="margin-bottom: 6px;">Set warnings</div>
+						{#each ggResults.warnings as warning}
+							<p style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-soft); margin: 2px 0;">
+								<span class="pw-dot pw-dot-warn"></span>{warning}
+							</p>
 						{/each}
-					</tbody>
-				</table>
+					</div>
+				{/if}
 			</div>
-			{#if ggResults.warnings.length}
-				<div class="mt-4 border border-gray-200 bg-gray-50 p-4">
-					<p class="text-[10px] uppercase tracking-wider text-gray-400">Warnings</p>
-					{#each ggResults.warnings as warning}
-						<p class="mt-1 text-[12px] text-gray-600">{warning}</p>
-					{/each}
-				</div>
-			{/if}
-		</section>
-	{/if}
+		{/if}
+	</div>
 {/if}
