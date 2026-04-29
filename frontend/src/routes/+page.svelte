@@ -385,24 +385,14 @@ R_Kan\tGTCCTGGGTTTCAAGCATTAGTCCA`);
 												<button class="mt-1 border border-gray-200 px-3 py-1.5 text-[12px] hover:border-gray-400" onclick={() => copyPrimerPair(c)}>Copy pair</button>
 											</div>
 										</div>
-										<div class="mt-4 grid gap-4 md:grid-cols-2">
-											<div>
-												<p class="text-[10px] uppercase tracking-wider text-gray-400">Explanation</p>
-												{#each c.explanations as item}
-													<p class="mt-1 text-[12px] text-gray-600">{item}</p>
+										{#if c.warnings.length}
+											<div class="mt-4">
+												<p class="text-[10px] uppercase tracking-wider text-gray-400">Warnings</p>
+												{#each c.warnings as warning}
+													<p class="mt-1 text-[12px] text-gray-600">{warning}</p>
 												{/each}
 											</div>
-											<div>
-												<p class="text-[10px] uppercase tracking-wider text-gray-400">Warnings</p>
-												{#if c.warnings.length}
-													{#each c.warnings as warning}
-														<p class="mt-1 text-[12px] text-gray-600">{warning}</p>
-													{/each}
-												{:else}
-													<p class="mt-1 text-[12px] text-gray-400">No warnings.</p>
-												{/if}
-											</div>
-										</div>
+										{/if}
 									</td>
 								</tr>
 							{/if}
