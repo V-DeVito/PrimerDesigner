@@ -517,9 +517,28 @@ R_Kan\tGTCCTGGGTTTCAAGCATTAGTCCA`);
 							{#if isExpanded}
 								<tr>
 									<td colspan="6" style="padding: 14px 20px; background: var(--surface2); border-bottom: 1px solid var(--line-soft);">
-										<div style="font-size: 12.5px;">
-											<span style="color: var(--muted);">Mathews hairpin</span>
-											<span class="pw-num" style="margin-left: 8px; color: var(--ink);">{p.hairpin.dg_mathews}</span>
+										<div class="flex flex-wrap" style="gap: 18px; font-size: 12.5px;">
+											<div>
+												<span style="color: var(--muted);">SantaLucia</span>
+												<span class="pw-num" style="margin-left: 8px; color: var(--ink);">{p.hairpin.dg_santalucia}</span>
+											</div>
+											<div>
+												<span style="color: var(--muted);">Mathews</span>
+												<span class="pw-num" style="margin-left: 8px; color: var(--ink);">{p.hairpin.dg_mathews}</span>
+											</div>
+											{#if p.hairpin.dg_vienna != null}
+												<div>
+													<span style="color: var(--muted);">ViennaRNA</span>
+													<span class="pw-num" style="margin-left: 8px; color: var(--ink);">{p.hairpin.dg_vienna}</span>
+													<span style="margin-left: 6px; color: var(--muted-soft); font-size: 11px;">{p.hairpin.vienna_param_set === 'rna_turner_2004' ? 'RNA' : 'DNA'}</span>
+												</div>
+											{/if}
+											{#if p.hairpin.engines_disagree}
+												<div class="inline-flex items-center" style="gap: 6px; color: var(--blush-fg);">
+													<span class="pw-dot pw-dot-warn"></span>
+													<span>engines disagree</span>
+												</div>
+											{/if}
 										</div>
 										{#if p.warnings.length}
 											<div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line-soft);">

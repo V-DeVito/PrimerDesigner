@@ -13,11 +13,12 @@ primer3-py is GPL v2, contained server-side. seqfold is MIT.
 """
 
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 import primer3
 from seqfold import dg as seqfold_dg, fold as seqfold_fold, dot_bracket
 
 from . import mathews_hairpin
+from . import engines as _engines
 
 
 # =============================================================================
@@ -45,25 +46,42 @@ class DimerResult:
 
 @dataclass
 class HairpinResult:
-    """Hairpin analysis with dual-engine comparison."""
-    dg_santalucia: float        # From seqfold (SantaLucia 2004)
-    dg_mathews: float           # From Mathews/Turner RNA params
+    """Hairpin analysis with multi-engine comparison."""
+    dg_santalucia: float        # seqfold (SantaLucia 2004 NN, DNA)
+    dg_mathews: float           # custom Turner/Mathews 1999 RNA params (T→U)
     dot_bracket: str            # Structure notation from seqfold
-    dg_threshold: float = -3.0  # Hairpin concern threshold
+    # ViennaRNA outputs are optional — None if the package isn't installed
+    # or the call failed. Frontend must tolerate absence.
+    dg_vienna: Optional[float] = None
+    dot_bracket_vienna: Optional[str] = None
+    vienna_param_set: Optional[str] = None       # 'dna_mathews_2004' | 'rna_turner_2004'
+    vienna_ensemble_dg: Optional[float] = None
+    dg_threshold: float = -3.0
 
     @property
     def engines_disagree(self) -> bool:
-        """True when SantaLucia says 'no hairpin' but Mathews says 'hairpin'."""
-        return self.dg_santalucia > self.dg_threshold and self.dg_mathews < self.dg_threshold
+        """True when at least one engine flags a hairpin and at least one doesn't."""
+        engines = [self.dg_santalucia, self.dg_mathews]
+        if self.dg_vienna is not None:
+            engines.append(self.dg_vienna)
+        any_flag = any(dg < self.dg_threshold for dg in engines)
+        any_clear = any(dg > self.dg_threshold for dg in engines)
+        return any_flag and any_clear
 
     @property
     def is_problematic(self) -> bool:
-        """Conservative: flag if either engine says problematic."""
-        return self.dg_santalucia < self.dg_threshold or self.dg_mathews < self.dg_threshold
+        """Conservative: flag if any engine says problematic."""
+        engines = [self.dg_santalucia, self.dg_mathews]
+        if self.dg_vienna is not None:
+            engines.append(self.dg_vienna)
+        return any(dg < self.dg_threshold for dg in engines)
 
     @property
     def worst_dg(self) -> float:
-        return min(self.dg_santalucia, self.dg_mathews)
+        engines = [self.dg_santalucia, self.dg_mathews]
+        if self.dg_vienna is not None:
+            engines.append(self.dg_vienna)
+        return min(engines)
 
 
 @dataclass
@@ -136,10 +154,28 @@ def calc_hairpin(seq: str, temp: float = 37.0) -> HairpinResult:
     # Engine 2: Mathews/Turner RNA params (catches AT-closing stems)
     dg_mw = mathews_hairpin.calc_hairpin_dg(seq, temp=temp)
 
+    # Engine 3 (optional): ViennaRNA. Best single predictor for primer-length
+    # sequences on the Binet 2023 benchmark (F1 0.939 vs seqfold 0.864).
+    dg_v: Optional[float] = None
+    db_v: Optional[str] = None
+    pset_v: Optional[str] = None
+    if _engines.HAS_VIENNARNA:
+        try:
+            v = _engines.vienna_fold(seq, temp=temp)
+            if v is not None:
+                dg_v = v.dg
+                db_v = v.dot_bracket
+                pset_v = v.param_set
+        except Exception:  # pragma: no cover — defensive
+            dg_v = db_v = pset_v = None
+
     return HairpinResult(
         dg_santalucia=round(dg_sl, 2),
         dg_mathews=round(dg_mw, 2),
         dot_bracket=db,
+        dg_vienna=dg_v,
+        dot_bracket_vienna=db_v,
+        vienna_param_set=pset_v,
     )
 
 

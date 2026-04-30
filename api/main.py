@@ -162,6 +162,11 @@ class HairpinResponse(BaseModel):
     dot_bracket: str
     engines_disagree: bool
     is_problematic: bool
+    # ViennaRNA outputs are optional. Absent when ViennaRNA isn't installed
+    # on the server. Frontend must tolerate `None` / missing keys.
+    dg_vienna: Optional[float] = None
+    dot_bracket_vienna: Optional[str] = None
+    vienna_param_set: Optional[str] = None
 
 
 class DimerResponse(BaseModel):
@@ -239,6 +244,9 @@ def _primer_to_response(report) -> PrimerResponse:
             dot_bracket=report.hairpin.dot_bracket,
             engines_disagree=report.hairpin.engines_disagree,
             is_problematic=report.hairpin.is_problematic,
+            dg_vienna=report.hairpin.dg_vienna,
+            dot_bracket_vienna=report.hairpin.dot_bracket_vienna,
+            vienna_param_set=report.hairpin.vienna_param_set,
         ),
         homodimer=DimerResponse(
             dg=report.homodimer.dg,
@@ -261,7 +269,17 @@ def _coords_to_response(coords) -> PrimerCoordinatesResponse:
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": "0.1.0"}
+    from primerdesignr import engines as _engines
+    return {
+        "status": "ok",
+        "version": "0.1.0",
+        "engines": {
+            "primer3": True,
+            "seqfold": True,
+            "mathews_hairpin": True,
+            "viennarna": _engines.HAS_VIENNARNA,
+        },
+    }
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
