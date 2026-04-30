@@ -533,12 +533,6 @@ R_Kan\tGTCCTGGGTTTCAAGCATTAGTCCA`);
 													<span style="margin-left: 6px; color: var(--muted-soft); font-size: 11px;">{p.hairpin.vienna_param_set === 'rna_turner_2004' ? 'RNA' : 'DNA'}</span>
 												</div>
 											{/if}
-											{#if p.hairpin.engines_disagree}
-												<div class="inline-flex items-center" style="gap: 6px; color: var(--blush-fg);">
-													<span class="pw-dot pw-dot-warn"></span>
-													<span>engines disagree</span>
-												</div>
-											{/if}
 										</div>
 										{#if p.warnings.length}
 											<div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line-soft);">
