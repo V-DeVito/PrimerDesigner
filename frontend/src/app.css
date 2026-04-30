@@ -264,3 +264,102 @@ input[type=number] { -moz-appearance: textfield; }
 @media (max-width: 860px) {
   .design-grid { grid-template-columns: 1fr; }
 }
+
+/* ── Warning triangle ────────────────────────────────────────
+   Pulsing blush triangle with a "!" inside. Clickable. */
+.pw-warn-tri {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--blush-solid-fg);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  /* The triangle itself, drawn via clip-path so the glow can pulse */
+  clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+  background: var(--blush-solid-bg);
+  animation: pw-warn-pulse 1.6s ease-in-out infinite;
+  /* Nudge the "!" down so it sits visually centered in the triangle */
+  padding-top: 4px;
+}
+.pw-warn-tri:hover { filter: brightness(1.1); }
+.pw-warn-tri:focus-visible { outline: 2px solid var(--blush-fg); outline-offset: 2px; }
+
+@keyframes pw-warn-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(198, 110, 110, 0.55);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(198, 110, 110, 0);
+    transform: scale(1.06);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pw-warn-tri { animation: none; }
+}
+
+/* ── Glass popover ───────────────────────────────────────────
+   Frosted card anchored over a triggering element. */
+.pw-popover-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: transparent;
+}
+.pw-popover {
+  position: absolute;
+  z-index: 51;
+  min-width: 240px;
+  max-width: 360px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(251, 250, 247, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(22px) saturate(200%);
+  -webkit-backdrop-filter: blur(22px) saturate(200%);
+  box-shadow: 0 20px 50px -10px rgba(20, 25, 30, 0.25),
+              0 1px 0 rgba(255, 255, 255, 0.6) inset;
+  color: var(--ink);
+  transform: translate(-50%, 0);
+  animation: pw-popover-in 160ms ease-out;
+}
+[data-theme="dark"] .pw-popover {
+  background: rgba(30, 30, 32, 0.78);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.5),
+              0 1px 0 rgba(255, 255, 255, 0.04) inset;
+}
+.pw-popover::before {
+  /* arrow */
+  content: '';
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 12px;
+  height: 12px;
+  background: inherit;
+  border-left: 1px solid rgba(255, 255, 255, 0.4);
+  border-top: 1px solid rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+}
+[data-theme="dark"] .pw-popover::before {
+  border-left-color: rgba(255, 255, 255, 0.08);
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+@keyframes pw-popover-in {
+  from { opacity: 0; transform: translate(-50%, -4px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}

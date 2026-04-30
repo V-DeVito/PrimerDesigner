@@ -23,9 +23,13 @@ ATTTGCCTCCGAGAATACACTCATGGGTAGGACTCGCACTACCTAAGATTCCGCGCGCAGCACCGTTCGAGATTCTGCCC
 
 	let active = $state('design');
 
+	// Defaults match NEB Standard Taq Buffer (Na+ 50 mM via 50 mM KCl,
+	// Mg2+ 1.5 mM MgCl2) and the standard Thermo/Invitrogen Taq dNTP
+	// recipe (0.2 mM each × 4 = 0.8 mM total). Primer 250 nM and 37 °C
+	// follow SantaLucia 1998.
 	let naConc = $state(50);
-	let mgConc = $state(0);
-	let dntpConc = $state(0);
+	let mgConc = $state(1.5);
+	let dntpConc = $state(0.8);
 	let dnaConc = $state(250);
 	let showConditions = $state(false);
 
@@ -50,7 +54,8 @@ R_Kan\tGTCCTGGGTTTCAAGCATTAGTCCA`);
 	let analyzeLoading = $state(false);
 	let analyzeError = $state('');
 	let analyzeResults = $state(null);
-	let expandedPrimer = $state(null);
+	let hairpinEngine = $state('vienna'); // 'vienna' | 'santalucia' | 'mathews'
+	let warningPopover = $state(null); // { primer, anchorRect } | null
 
 	let overhangInput = $state('AACG AATG ATAG GCAA GCTG');
 	let enzyme = $state('BsaI');
@@ -142,7 +147,6 @@ R_Kan\tGTCCTGGGTTTCAAGCATTAGTCCA`);
 		analyzeLoading = true;
 		analyzeError = '';
 		analyzeResults = null;
-		expandedPrimer = null;
 
 		try {
 			analyzeResults = await analyzePrimers(primers, conditions());
@@ -172,6 +176,46 @@ R_Kan\tGTCCTGGGTTTCAAGCATTAGTCCA`);
 		return analyzeResults.cross_dimers.find(
 			(cd) => (cd.primer_a === a && cd.primer_b === b) || (cd.primer_a === b && cd.primer_b === a)
 		);
+	}
+
+	const HAIRPIN_THRESHOLD = -3.0;
+
+	// Pick the hairpin ΔG to display per the selected engine, falling
+	// back if the chosen engine isn't available (e.g. ViennaRNA missing
+	// on a bare-bones install).
+	function hairpinDg(p) {
+		const v = p?.hairpin?.dg_vienna;
+		const sl = p?.hairpin?.dg_santalucia;
+		const mw = p?.hairpin?.dg_mathews;
+		if (hairpinEngine === 'vienna' && v != null) return v;
+		if (hairpinEngine === 'mathews' && mw != null) return mw;
+		if (hairpinEngine === 'santalucia' && sl != null) return sl;
+		// Fallback chain: vienna → santalucia → mathews
+		return v ?? sl ?? mw;
+	}
+
+	// "Engines disagree" = at least one engine flags a hairpin AND at
+	// least one says clean. This is the only case worth surfacing.
+	function enginesDisagree(p) {
+		const vals = [p?.hairpin?.dg_santalucia, p?.hairpin?.dg_mathews, p?.hairpin?.dg_vienna]
+			.filter((x) => x != null);
+		if (vals.length < 2) return false;
+		return vals.some((v) => v < HAIRPIN_THRESHOLD) && vals.some((v) => v >= HAIRPIN_THRESHOLD);
+	}
+
+	// Build the visible warning list for a primer: server warnings plus
+	// a synthetic "engines disagree" warning when the multi-engine
+	// hairpin spread crosses the threshold.
+	function rowWarnings(p) {
+		const out = [...(p.warnings || [])];
+		if (enginesDisagree(p)) {
+			const parts = [];
+			if (p.hairpin.dg_santalucia != null) parts.push(`SL ${p.hairpin.dg_santalucia}`);
+			if (p.hairpin.dg_mathews != null) parts.push(`MW ${p.hairpin.dg_mathews}`);
+			if (p.hairpin.dg_vienna != null) parts.push(`V ${p.hairpin.dg_vienna}`);
+			out.push(`Hairpin engines disagree on threshold (${parts.join(', ')})`);
+		}
+		return out;
 	}
 
 	// Cross-dimer heatmap: more negative ΔG → stronger blush wash.
@@ -492,60 +536,65 @@ R_Kan\tGTCCTGGGTTTCAAGCATTAGTCCA`);
 					</colgroup>
 					<thead>
 						<tr>
-							{#each [['Name', 'left'], ['Sequence', 'left'], ['Tm', 'right'], ['GC', 'right'], ['Hairpin', 'right'], ['Self-dimer', 'right']] as [h, align]}
-								<th class="pw-eyebrow" style="padding: 14px 16px; text-align: {align}; border-bottom: 1px solid var(--line);">{h}</th>
-							{/each}
+							<th class="pw-eyebrow" style="padding: 14px 16px; text-align: left; border-bottom: 1px solid var(--line);">Name</th>
+							<th class="pw-eyebrow" style="padding: 14px 16px; text-align: left; border-bottom: 1px solid var(--line);">Sequence</th>
+							<th class="pw-eyebrow" style="padding: 14px 16px; text-align: right; border-bottom: 1px solid var(--line);">Tm</th>
+							<th class="pw-eyebrow" style="padding: 14px 16px; text-align: right; border-bottom: 1px solid var(--line);">GC</th>
+							<th class="pw-eyebrow" style="padding: 14px 16px; text-align: right; border-bottom: 1px solid var(--line);">
+								<span class="inline-flex items-center" style="gap: 8px; justify-content: flex-end;">
+									<span>Hairpin</span>
+									<div class="pw-select-wrap" style="display: inline-block;">
+										<select class="pw-select" bind:value={hairpinEngine}
+											style="height: 24px; padding: 0 22px 0 8px; font-size: 11px; text-transform: none; letter-spacing: 0.02em; width: auto;">
+											<option value="vienna">Vienna</option>
+											<option value="santalucia">SantaLucia</option>
+											<option value="mathews">Mathews</option>
+										</select>
+									</div>
+								</span>
+							</th>
+							<th class="pw-eyebrow" style="padding: 14px 16px; text-align: right; border-bottom: 1px solid var(--line);">Self-dimer</th>
 						</tr>
 					</thead>
 					<tbody>
 						{#each Object.entries(analyzeResults.primers) as [name, p], i}
-							{@const isExpanded = expandedPrimer === name}
-							<tr style="background: {i % 2 === 1 ? 'var(--row-alt)' : 'transparent'}; cursor: pointer; border-bottom: 1px solid var(--line-soft);"
-								onclick={() => expandedPrimer = isExpanded ? null : name}>
+							{@const dg = hairpinDg(p)}
+							{@const warns = rowWarnings(p)}
+							<tr style="background: {i % 2 === 1 ? 'var(--row-alt)' : 'transparent'}; border-bottom: 1px solid var(--line-soft);">
 								<td style="padding: 13px 16px; font-size: 13.5px; color: var(--ink); white-space: nowrap;">
 									<span class="inline-flex items-center" style="gap: 8px;">
-										{#if p.warnings.length}<span class="pw-dot pw-dot-warn"></span>{/if}
+										{#if warns.length}
+											<button
+												type="button"
+												class="pw-warn-tri"
+												aria-label="{warns.length} warning{warns.length > 1 ? 's' : ''}"
+												onclick={(e) => {
+													e.stopPropagation();
+													const r = e.currentTarget.getBoundingClientRect();
+													warningPopover = {
+														name,
+														warnings: warns,
+														anchor: (() => {
+																const half = 180, margin = 16;
+																const center = r.left + r.width / 2;
+																const minX = half + margin;
+																const maxX = window.innerWidth - half - margin;
+																const x = Math.max(minX, Math.min(maxX, center)) + window.scrollX;
+																return { x, y: r.bottom + 10 + window.scrollY };
+															})()
+													};
+												}}
+											>!</button>
+										{/if}
 										<span class="pw-num">{name}</span>
 									</span>
 								</td>
 								<td class="pw-num" style="padding: 13px 16px; font-size: 13px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{p.sequence}</td>
 								<td class="pw-num" style="padding: 13px 16px; font-size: 13.5px; text-align: right; color: var(--ink);">{p.tm.toFixed(1)}</td>
 								<td class="pw-num" style="padding: 13px 16px; font-size: 13.5px; text-align: right; color: var(--ink);">{(p.gc_content * 100).toFixed(0)}%</td>
-								<td class="pw-num" style="padding: 13px 16px; font-size: 13.5px; text-align: right; color: var(--ink); {heatBg(p.hairpin.dg_santalucia, -6, -1)}">{p.hairpin.dg_santalucia}</td>
+								<td class="pw-num" style="padding: 13px 16px; font-size: 13.5px; text-align: right; color: var(--ink); {dg != null ? heatBg(dg, -6, -1) : ''}">{dg != null ? dg : '—'}</td>
 								<td class="pw-num" style="padding: 13px 16px; font-size: 13.5px; text-align: right; color: var(--ink); {heatBg(p.homodimer.dg)}">{p.homodimer.dg}</td>
 							</tr>
-							{#if isExpanded}
-								<tr>
-									<td colspan="6" style="padding: 14px 20px; background: var(--surface2); border-bottom: 1px solid var(--line-soft);">
-										<div class="flex flex-wrap" style="gap: 18px; font-size: 12.5px;">
-											<div>
-												<span style="color: var(--muted);">SantaLucia</span>
-												<span class="pw-num" style="margin-left: 8px; color: var(--ink);">{p.hairpin.dg_santalucia}</span>
-											</div>
-											<div>
-												<span style="color: var(--muted);">Mathews</span>
-												<span class="pw-num" style="margin-left: 8px; color: var(--ink);">{p.hairpin.dg_mathews}</span>
-											</div>
-											{#if p.hairpin.dg_vienna != null}
-												<div>
-													<span style="color: var(--muted);">ViennaRNA</span>
-													<span class="pw-num" style="margin-left: 8px; color: var(--ink);">{p.hairpin.dg_vienna}</span>
-													<span style="margin-left: 6px; color: var(--muted-soft); font-size: 11px;">{p.hairpin.vienna_param_set === 'rna_turner_2004' ? 'RNA' : 'DNA'}</span>
-												</div>
-											{/if}
-										</div>
-										{#if p.warnings.length}
-											<div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line-soft);">
-												{#each p.warnings as warning}
-													<p style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-soft); margin: 2px 0;">
-														<span class="pw-dot pw-dot-warn"></span>{warning}
-													</p>
-												{/each}
-											</div>
-										{/if}
-									</td>
-								</tr>
-							{/if}
 						{/each}
 					</tbody>
 				</table>
@@ -702,5 +751,29 @@ R_Kan\tGTCCTGGGTTTCAAGCATTAGTCCA`);
 				{/if}
 			</div>
 		{/if}
+	</div>
+{/if}
+
+<!-- ─────────── WARNING POPOVER ─────────── -->
+{#if warningPopover}
+	<div
+		class="pw-popover-bg"
+		role="presentation"
+		onclick={() => warningPopover = null}
+		onkeydown={(e) => e.key === 'Escape' && (warningPopover = null)}
+	></div>
+	<div
+		class="pw-popover"
+		role="dialog"
+		aria-label="Warnings for {warningPopover.name}"
+		style="left: {warningPopover.anchor.x}px; top: {warningPopover.anchor.y}px;"
+	>
+		<div class="pw-eyebrow" style="margin-bottom: 8px;">{warningPopover.name} · warnings</div>
+		{#each warningPopover.warnings as w}
+			<p style="display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; line-height: 1.5; color: var(--ink-soft); margin: 4px 0;">
+				<span class="pw-dot pw-dot-warn" style="margin-top: 6px;"></span>
+				<span>{w}</span>
+			</p>
+		{/each}
 	</div>
 {/if}
