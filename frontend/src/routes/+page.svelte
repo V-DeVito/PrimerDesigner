@@ -517,19 +517,9 @@ R_Kan\tGTCCTGGGTTTCAAGCATTAGTCCA`);
 							{#if isExpanded}
 								<tr>
 									<td colspan="6" style="padding: 14px 20px; background: var(--surface2); border-bottom: 1px solid var(--line-soft);">
-										<div class="grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 18px; font-size: 12.5px;">
-											<div>
-												<span style="color: var(--muted);">Mathews hairpin</span>
-												<span class="pw-num" style="margin-left: 8px; color: var(--ink);">{p.hairpin.dg_mathews}</span>
-											</div>
-											<div>
-												<span style="color: var(--muted);">Dot bracket</span>
-												<span class="pw-num" style="margin-left: 8px; color: var(--ink);">{p.hairpin.dot_bracket || '—'}</span>
-											</div>
-											<div>
-												<span style="color: var(--muted);">Engines disagree</span>
-												<span class="pw-num" style="margin-left: 8px; color: var(--ink);">{p.hairpin.engines_disagree ? 'yes' : 'no'}</span>
-											</div>
+										<div style="font-size: 12.5px;">
+											<span style="color: var(--muted);">Mathews hairpin</span>
+											<span class="pw-num" style="margin-left: 8px; color: var(--ink);">{p.hairpin.dg_mathews}</span>
 										</div>
 										{#if p.warnings.length}
 											<div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line-soft);">
