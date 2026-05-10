@@ -12,18 +12,23 @@
 }
 
 :root {
-  /* Cream (default / Light) */
-  --bg:        #F2F1ED;
-  --surface:   #FBFAF7;
-  --surface2:  #F6F5F1;
-  --ink:       #1B1C1D;
-  --ink-soft:  #46484B;
-  --muted:     #8B8E92;
-  --muted-soft:#BDBFC3;
-  --line:      rgba(30, 35, 45, 0.08);
-  --line-soft: rgba(30, 35, 45, 0.04);
-  --row-alt:   rgba(30, 35, 45, 0.02);
-  --card-shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 1px 2px rgba(20,25,30,0.03);
+  /* Cool greyscale (Light)
+     Palette: #F8F9FA / #E9ECEF / #DEE2E6 / #343A40
+     Page is the mid-light grey; cards sit one step lighter so they
+     read as "raised" without needing heavy shadow. Ink is the deep
+     charcoal from the palette; sub-text steps come from the Bootstrap
+     5 grayscale family so the whole stack stays in the same hue. */
+  --bg:        #E9ECEF;   /* page */
+  --surface:   #F8F9FA;   /* cards */
+  --surface2:  #FFFFFF;   /* sub-cards, inputs, textareas */
+  --ink:       #343A40;   /* primary text */
+  --ink-soft:  #495057;
+  --muted:     #6C757D;
+  --muted-soft:#ADB5BD;
+  --line:      #DEE2E6;            /* card borders, hairlines */
+  --line-soft: rgba(52, 58, 64, 0.06);
+  --row-alt:   rgba(52, 58, 64, 0.025);
+  --card-shadow: 0 1px 0 rgba(255,255,255,0.7) inset, 0 1px 2px rgba(52, 58, 64, 0.04);
 
   /* Semantic accents (light) */
   --sage-bg: #D6E4CD; --sage-fg: #3E5A38; --sage-solid-bg: #7FA174; --sage-solid-fg: #FBF8F1;
@@ -324,8 +329,8 @@ input[type=number] { -moz-appearance: textfield; }
   max-width: 360px;
   padding: 14px 16px;
   border-radius: 12px;
-  background: rgba(251, 250, 247, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(248, 249, 250, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.55);
   backdrop-filter: blur(22px) saturate(200%);
   -webkit-backdrop-filter: blur(22px) saturate(200%);
   box-shadow: 0 20px 50px -10px rgba(20, 25, 30, 0.25),
