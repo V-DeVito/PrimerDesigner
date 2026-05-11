@@ -256,16 +256,16 @@ R_Kan\tGTCCTGGGTTTCAAGCATTAGTCCA`);
 
 <!-- ─────────── DESIGN ─────────── -->
 {#if active === 'design'}
-	<div class="design-grid items-start">
-		<!-- Template editor -->
-		<div class="pw-card">
+	<div class="design-grid">
+		<!-- Template editor — flex column so the textarea stretches to match Constraints card height -->
+		<div class="pw-card" style="display: flex; flex-direction: column;">
 			<div class="flex items-center justify-between" style="margin-bottom: 12px;">
 				<span class="pw-section-label">Template</span>
 				<span class="pw-num" style="font-size: 12px; color: var(--muted);">{templateLength} bp</span>
 			</div>
 			<textarea
 				class="pw-textarea"
-				style="min-height: 280px;"
+				style="flex: 1; min-height: 280px;"
 				bind:value={templateInput}
 				spellcheck="false"
 			></textarea>
